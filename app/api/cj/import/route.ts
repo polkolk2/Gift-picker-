@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase/server";
 import { CURATED } from "@/lib/catalog-data";
-import { cheapestShipping, cjEnabled, cjProduct, cjSearch, type CjHit } from "@/lib/cj";
+import { cheapestShipping, cjEnabled, cjProduct, cjSearch } from "@/lib/cj";
 
 /**
  * Fills the catalog with real CJdropshipping items, one for each curated gift.
@@ -37,6 +37,37 @@ function keywords(name: string) {
     .trim();
 }
 
+const STOP = new Set(["and", "the", "of", "your", "own", "their", "for", "with", "kit", "set", "a", "an", "to", "you", "it", "in", "on"]);
+const words = (s: string) =>
+  s.toLowerCase().replace(/[^a-z0-9 ]/g, " ").split(/\s+/).filter((w) => w.length > 2 && !STOP.has(w)).map((w) => w.replace(/(ies)$/, "y").replace(/(s)$/, ""));
+
+/** How much of the search the CJ title covers, 0 to 1. */
+function overlap(search: string, title: string) {
+  const want = [...new Set(words(search))];
+  if (!want.length) return 0;
+  const have = new Set(words(title));
+  return want.filter((w) => have.has(w)).length / want.length;
+}
+
+/**
+ * The best CJ hit for a gift: its title has to cover most of the search words
+ * and its price has to be near what the gift should cost.
+ */
+async function bestHit(q: string, estimateCents: number) {
+  const tries: [string, string | undefined][] = [];
+  const short = q.split(" ").slice(-2).join(" ");
+  for (const query of [...new Set([q, short])]) for (const c of ["US", undefined]) tries.push([query, c]);
+  for (const [query, country] of tries) {
+    const hits = await cjSearch(query, country, 20);
+    const ok = hits
+      .map((h) => ({ h, score: overlap(query, h.nameEn ?? ""), price: (parseFloat(String(h.sellPrice ?? "0")) || 0) * 100 }))
+      .filter((x) => x.h.id && x.score >= 0.6 && (!x.price || (x.price >= estimateCents * 0.1 && x.price <= estimateCents * 2)))
+      .sort((a, b) => b.score - a.score);
+    if (ok.length) return { hit: ok[0].h, warehouse: country ?? "CN" };
+  }
+  return null;
+}
+
 export async function GET(req: Request) {
   const url = new URL(req.url);
   const token = url.searchParams.get("token");
@@ -52,18 +83,16 @@ export async function GET(req: Request) {
   const db = supabaseAdmin();
   const results: unknown[] = [];
 
-  for (const [sku, giftName, , tags, styles, occasions, sex, ages, emoji] of rows) {
+  for (const [sku, giftName, estimate, tags, styles, occasions, sex, ages, emoji] of rows) {
     const q = keywords(giftName);
     try {
-      let warehouse = "US";
-      let hits: CjHit[] = await cjSearch(q, "US");
-      if (!hits.length) { warehouse = "CN"; hits = await cjSearch(q); }
-      const hit = hits.find((h) => h.id);
-      if (!hit) {
+      const found = await bestHit(q, estimate);
+      if (!found) {
         await db.from("products").update({ active: false }).eq("sku", sku);
         results.push({ sku, search: q, matched: false });
         continue;
       }
+      const { hit, warehouse } = found;
       const detail = await cjProduct(hit.id, warehouse === "US" ? "US" : undefined);
       const variant = [...(detail.variants ?? [])]
         .filter((v) => v.vid && Number(v.variantSellPrice) > 0)
@@ -76,6 +105,11 @@ export async function GET(req: Request) {
       const ship = await cheapestShipping(variant.vid, warehouse, "US");
       const itemCents = Math.round(Number(variant.variantSellPrice) * 100);
       const shipCents = Math.round(ship.usd * 100);
+      if (itemCents + shipCents > estimate * 2.5) {
+        await db.from("products").update({ active: false }).eq("sku", sku);
+        results.push({ sku, search: q, matched: false, reason: `too pricey: ${(itemCents + shipCents) / 100}` });
+        continue;
+      }
       const name = cleanName(detail.productNameEn || hit.nameEn || giftName);
 
       await db.from("products").upsert({
