@@ -6,7 +6,21 @@ import { ASSOCIATE_STATEMENT } from "@/lib/amazon";
 const display = Bricolage_Grotesque({ subsets: ["latin"], weight: ["600", "700", "800"], variable: "--font-display" });
 const body = Inter({ subsets: ["latin"], weight: ["400", "500", "600", "700"], variable: "--font-body" });
 
-export const metadata = { title: "Gift4Me", description: "Never miss a birthday. Pick and send the right gift in a few taps." };
+export const metadata = {
+  title: "Gift4Me",
+  description: "Never miss a birthday. Pick and send the right gift in a few taps.",
+  applicationName: "Gift4Me",
+  appleWebApp: { capable: true, title: "Gift4Me", statusBarStyle: "default" as const },
+};
+export const viewport = {
+  themeColor: [
+    { media: "(prefers-color-scheme: light)", color: "#F7F6F9" },
+    { media: "(prefers-color-scheme: dark)", color: "#131118" },
+  ],
+  width: "device-width",
+  initialScale: 1,
+  viewportFit: "cover" as const,
+};
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (

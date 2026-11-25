@@ -19,6 +19,11 @@ import { cheapestShipping, cjEnabled, cjList, cjProduct, type CjListItem } from 
  *   per: items to keep from each CJ category id (default 12, max 50)
  *   reset=1: hides every product that isn't from CJ (the old starter list)
  *   bg=1: answers at once and does the work in the background (results go to the logs)
+ *
+ * Or: /api/cj/feed?resume=1 carries on a job queued in the feed_jobs table
+ * (insert a row there to start one). It needs no token, because it only does
+ * work a queued job asks for, and it does nothing once the job is done. Each
+ * run picks up where the last stopped and then calls the next one itself.
  */
 export const maxDuration = 300;
 
@@ -38,6 +43,7 @@ const maxDays = (d: unknown) => Math.max(0, ...String(d ?? "").split(/[^0-9]+/).
 
 export async function GET(req: Request) {
   const url = new URL(req.url);
+  if (url.searchParams.get("resume") === "1") return resume();
   const token = url.searchParams.get("token");
   const cron = !!process.env.CRON_SECRET && req.headers.get("authorization") === `Bearer ${process.env.CRON_SECRET}`;
   if (!cron && (!process.env.IMPORT_TOKEN || token !== process.env.IMPORT_TOKEN)) {
@@ -152,4 +158,40 @@ async function pull(db: Db, batch: FeedCategory[], per: number, startAt = 0) {
     }
   }
   return { stoppedAt, seconds: Math.round((Date.now() - t0) / 1000), results };
+}
+
+/** Runs the next stretch of a queued feed job, then starts the following one. */
+async function resume() {
+  if (!cjEnabled()) return NextResponse.json({ error: "CJ_API_KEY is not set" }, { status: 400 });
+  const db = supabaseAdmin();
+  const now = new Date();
+  const { data: jobs, error } = await db.from("feed_jobs")
+    .update({ running_until: new Date(now.getTime() + 300_000).toISOString(), updated_at: now.toISOString() })
+    .eq("active", true)
+    .or(`running_until.is.null,running_until.lt.${now.toISOString()}`)
+    .select("id, next_from, per")
+    .limit(1);
+  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+  const job = jobs?.[0];
+  if (!job) return NextResponse.json({ started: false, reason: "no queued job, or one is already running" });
+
+  after(async () => {
+    const out = await pull(db, FEED_CATEGORIES.slice(job.next_from), job.per, job.next_from);
+    const more = out.stoppedAt != null && out.stoppedAt < FEED_CATEGORIES.length;
+    console.log("cj-feed resume", job.next_from, JSON.stringify(out));
+    await db.from("feed_jobs").update({
+      next_from: more ? out.stoppedAt : FEED_CATEGORIES.length,
+      active: more,
+      running_until: null,
+      last_result: out,
+      updated_at: new Date().toISOString(),
+    }).eq("id", job.id);
+    const host = process.env.VERCEL_PROJECT_PRODUCTION_URL;
+    if (more && host) {
+      const headers: Record<string, string> = {};
+      if (process.env.VERCEL_AUTOMATION_BYPASS_SECRET) headers["x-vercel-protection-bypass"] = process.env.VERCEL_AUTOMATION_BYPASS_SECRET;
+      try { await fetch(`https://${host}/api/cj/feed?resume=1`, { headers }); } catch { /* the next run can be started by hand */ }
+    }
+  });
+  return NextResponse.json({ started: true, from: job.next_from });
 }
