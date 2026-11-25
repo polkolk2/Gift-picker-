@@ -1,0 +1,26 @@
+{
+  "name": "gift-picker",
+  "version": "1.0.0",
+  "description": "Save the people you buy for, get reminders, and send gifts.",
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start"
+  },
+  "dependencies": {
+    "@anthropic-ai/sdk": "1.7.0",
+    "@supabase/ssr": "0.12.7",
+    "@supabase/supabase-js": "2.119.0",
+    "next": "16.4.5",
+    "react": "19.3.1",
+    "react-dom": "19.3.1",
+    "resend": "6.37.0",
+    "stripe": "23.1.0"
+  },
+  "devDependencies": {
+    "@types/node": "22.19.1",
+    "@types/react": "19.2.7",
+    "typescript": "5.9.3"
+  },
+  "private": true
+}

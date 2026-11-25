@@ -1,0 +1,107 @@
+/* Gift Picker look: soft sheets on a warm gray, a violet main color with
+   green and gold accents, amber for close dates. Matches the prototype. */
+:root{
+  --bg:#F7F6F9; --surface:#FFFFFF; --sunk:#F1EFF4; --ink:#211C33; --muted:#67627A; --line:#E6E3EC;
+  --accent:#6A4CE8; --accent-ink:#5034CC; --accent-soft:#EEEAFE;
+  --good:#167A6B; --good-soft:#E2F2EE; --amber:#9C5C08; --amber-soft:#FBF0DC; --gold:#F0B43C;
+  --shadow:0 1px 2px rgba(33,28,51,.05),0 6px 20px rgba(33,28,51,.06);
+  --display:var(--font-display),"Segoe UI",system-ui,sans-serif;
+  --body:var(--font-body),system-ui,-apple-system,"Segoe UI",sans-serif;
+  --r:18px;
+}
+@media (prefers-color-scheme:dark){:root{
+  --bg:#131118; --surface:#1D1A24; --sunk:#17151D; --ink:#F1EFF5; --muted:#A7A1B6; --line:#302C3A;
+  --accent:#9B86FF; --accent-ink:#B8A8FF; --accent-soft:#28213F;
+  --good:#5CCDB9; --good-soft:#15302C; --amber:#EDB45E; --amber-soft:#372A14; --gold:#E8AE3E;
+  --shadow:0 1px 2px rgba(0,0,0,.3),0 10px 28px rgba(0,0,0,.28); color-scheme:dark}}
+
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.55 var(--body);-webkit-font-smoothing:antialiased}
+a{color:var(--accent-ink)}
+main{max-width:880px;margin:0 auto;padding:28px 16px 72px}
+.narrow{max-width:480px}
+h1,h2,h3{font-family:var(--display);line-height:1.15;margin:0;letter-spacing:-.01em}
+h1{font-size:clamp(28px,5vw,40px);font-weight:800}
+h2{font-size:20px;font-weight:700}
+h3{font-size:17px;font-weight:700}
+
+/* top bar */
+.top{position:sticky;top:0;z-index:20;display:flex;justify-content:space-between;align-items:center;gap:16px;flex-wrap:wrap;
+  padding:10px max(16px,calc((100% - 880px)/2 + 16px));border-bottom:1px solid var(--line);
+  background:color-mix(in srgb,var(--surface) 88%,transparent);backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px)}
+.top nav{display:flex;gap:4px;background:var(--sunk);border-radius:999px;padding:4px;overflow-x:auto}
+.top nav a{font-size:14px;font-weight:600;color:var(--muted);text-decoration:none;border-radius:999px;padding:7px 14px;white-space:nowrap}
+.top nav a:hover{background:var(--surface);color:var(--ink)}
+.brand{display:flex;align-items:center;gap:9px;font-family:var(--display);font-weight:800;font-size:20px;text-decoration:none;color:var(--ink)}
+.brand-mark{width:30px;height:30px;border-radius:9px;display:grid;place-items:center;background:var(--accent);color:#fff;font-size:17px}
+
+/* layout */
+.stack{display:flex;flex-direction:column;gap:14px}
+.stack.tight{gap:8px}
+.row{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,230px),1fr));gap:14px}
+.card,.panel{background:var(--surface);border-radius:var(--r);padding:18px;display:flex;flex-direction:column;gap:8px;box-shadow:var(--shadow)}
+.panel{padding:22px;gap:18px}
+.muted{color:var(--muted)}
+.when{font-weight:700;color:var(--good)}
+.when.soon{color:var(--amber)}
+.step{font-size:13px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.04em}
+.kicker{font-size:13px;font-weight:700;color:var(--accent-ink)}
+
+/* landing */
+.hero{display:grid;grid-template-columns:minmax(0,1.2fr) minmax(0,1fr);gap:28px;align-items:center;padding:12px 0 8px}
+.hero p{font-size:17px}
+.hero-art{aspect-ratio:1;border-radius:28px;background:linear-gradient(140deg,var(--accent-soft),var(--good-soft));display:grid;place-items:center;font-size:min(30vw,150px)}
+@media (max-width:680px){.hero{grid-template-columns:1fr}.hero-art{display:none}}
+.how{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px;margin:0;padding:0;list-style:none;counter-reset:how}
+.how li{background:var(--surface);border-radius:var(--r);padding:18px;box-shadow:var(--shadow);display:flex;flex-direction:column;gap:6px;counter-increment:how;min-width:0}
+.how li::before{content:counter(how);width:30px;height:30px;border-radius:50%;display:grid;place-items:center;background:var(--accent-soft);color:var(--accent-ink);font-weight:800;font-family:var(--display)}
+@media (max-width:640px){.how{grid-template-columns:1fr}}
+.trust{display:flex;flex-wrap:wrap;gap:8px 16px;font-size:13px;color:var(--muted);margin:0;padding:0;list-style:none}
+.trust li{display:inline-flex;align-items:center;gap:6px}
+.trust li::before{content:"";width:8px;height:8px;border-radius:50%;background:var(--good)}
+
+/* buttons and fields */
+.btn{font:inherit;font-weight:700;border-radius:999px;padding:11px 20px;border:1px solid var(--accent);background:var(--accent);color:#fff;cursor:pointer;text-decoration:none;text-align:center;display:inline-flex;justify-content:center;align-items:center;gap:8px}
+.btn:hover{background:var(--accent-ink);border-color:var(--accent-ink)}
+.btn.big{font-size:17px;padding:15px 28px}
+.btn.ghost{background:transparent;color:var(--ink);border-color:var(--line)}
+.btn.ghost:hover{background:var(--sunk)}
+.btn:disabled{opacity:.5;cursor:default}
+.btn:focus-visible,.chip:focus-visible,.swap:focus-visible{outline:3px solid var(--gold);outline-offset:2px}
+input,select,textarea{font:inherit;color:var(--ink);background:var(--sunk);border:1px solid var(--line);border-radius:12px;padding:11px 13px;min-width:0}
+input:focus,select:focus,textarea:focus{outline:2px solid var(--accent);outline-offset:0;background:var(--surface)}
+label{display:flex;flex-direction:column;gap:6px;font-size:13px;font-weight:600;color:var(--muted)}
+.chips{display:flex;flex-wrap:wrap;gap:8px}
+.chip{font:inherit;font-size:14px;font-weight:600;border:1px solid var(--line);background:var(--surface);color:var(--ink);border-radius:999px;padding:8px 14px;cursor:pointer}
+.chip.on{border-color:var(--accent);background:var(--accent-soft);color:var(--accent-ink)}
+.chip.off{border-color:var(--amber);color:var(--amber);text-decoration:line-through}
+
+/* gift ideas */
+.gift{background:var(--surface);border-radius:var(--r);box-shadow:var(--shadow);overflow:hidden;display:flex;flex-direction:column;gap:8px;padding:0 0 16px}
+.gift > :not(.thumb){margin:0 16px}
+.gift .thumb{position:relative;aspect-ratio:4/3;display:grid;place-items:center;font-size:64px;background:linear-gradient(140deg,var(--accent-soft),var(--good-soft))}
+.gift .badge{position:absolute;bottom:10px;left:10px;font-size:11px;font-weight:700;color:#fff;background:var(--good);border-radius:999px;padding:3px 10px}
+.gift .why{color:var(--good);font-weight:600;font-size:14px}
+.gift .btn{margin-top:auto}
+.price{display:flex;flex-direction:column;gap:2px;font-family:var(--display);font-weight:800;font-size:20px}
+.price small{font-family:var(--body);font-weight:500;font-size:12px}
+.pick-row{flex-direction:row;align-items:flex-start;gap:10px;padding:12px;border:1px solid var(--line);border-radius:14px;cursor:pointer;color:var(--ink);font-weight:500}
+.pick-row.on{border-color:var(--accent);background:var(--accent-soft)}
+.pick-row span{display:flex;flex-direction:column;gap:2px}
+.pick-row input{margin-top:3px;accent-color:var(--accent)}
+
+/* gift link page */
+.hero-card{background:linear-gradient(140deg,var(--accent-soft),var(--good-soft));border-radius:24px;padding:24px;display:flex;flex-direction:column;gap:8px}
+.note-quote{font-size:17px;font-style:italic;margin:0}
+.swap{font:inherit;text-align:left;color:var(--ink);background:var(--surface);border:2px solid var(--line);border-radius:16px;padding:14px;display:flex;flex-direction:column;gap:4px;cursor:pointer}
+.swap.on{border-color:var(--accent);background:var(--accent-soft)}
+.swap .emoji{font-size:32px}
+
+/* family discount */
+.perk{background:var(--accent-soft);border-radius:var(--r);padding:20px}
+.perk p{margin:0}
+.perk-note{margin:0;padding:10px 14px;border-radius:12px;background:var(--good-soft);color:var(--good);font-weight:600}
+
+table{border-collapse:collapse;font-size:14px;width:100%}
+th,td{padding:6px 10px;border-bottom:1px solid var(--line);white-space:nowrap}
