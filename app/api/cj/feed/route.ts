@@ -1,14 +1,17 @@
 import { NextResponse, after } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase/server";
 import { FEED_CATEGORIES, type FeedCategory } from "@/lib/cj-categories";
-import { cjEnabled, cjList, type CjListItem } from "@/lib/cj";
+import { cheapestShipping, cjEnabled, cjList, cjProduct, type CjListItem } from "@/lib/cj";
 
 /**
  * Pulls whole CJdropshipping categories into the catalog (lib/cj-categories.ts).
  *
- * Only items CJ ships free are kept, so an item's price is just CJ's price:
- * price_cents = CJ price, and shoppers pay that plus your markup, rounded up to
- * the dollar, with "Free shipping". One CJ call brings back 100 items.
+ * For each item it takes the cheapest variant and CJ's cheapest shipping to the
+ * US (skipping anything slower than MAX_DAYS): price_cents = item + shipping,
+ * and shoppers pay that plus your markup, rounded up to the dollar, shown as
+ * "Free shipping". Items already saved are skipped, so it can be run again.
+ * A run stops starting new items near Vercel's time limit and reports
+ * stoppedAt: run again with from=stoppedAt.
  * The gift finder then picks from them by age, sex, likes, dislikes and budget.
  *
  * Call: /api/cj/feed?token=IMPORT_TOKEN&from=0&count=20&per=12&bg=1
@@ -63,7 +66,7 @@ export async function GET(req: Request) {
     }
     return NextResponse.json(out);
   }
-  const work = () => pull(db, batch, per);
+  const work = () => pull(db, batch, per, from);
   if (url.searchParams.get("bg") === "1") {
     after(async () => { console.log("cj-feed", from, JSON.stringify(await work())); });
     return NextResponse.json({ from, count: batch.length, next, started: true });
@@ -72,34 +75,57 @@ export async function GET(req: Request) {
 }
 
 type Db = ReturnType<typeof supabaseAdmin>;
+const BUDGET_MS = 250_000; // stop starting new items before Vercel's 300s limit
 
-async function pull(db: Db, batch: FeedCategory[], per: number) {
+async function pull(db: Db, batch: FeedCategory[], per: number, startAt = 0) {
+  const t0 = Date.now();
+  const { data: have } = await db.from("products").select("sku").like("sku", "cj-%");
+  const known = new Set((have ?? []).map((r) => r.sku as string));
   const results: { name: string; saved: number; seen: number; error?: string }[] = [];
-  for (const c of batch) {
+  let stoppedAt: number | null = null;
+
+  for (const [k, c] of batch.entries()) {
+    if (Date.now() - t0 > BUDGET_MS) { stoppedAt = startAt + k; break; }
     let saved = 0, seen = 0;
     try {
       for (const id of c.ids) {
         const cap = c.maxUsd ?? 80;
-        const rows: Record<string, unknown>[] = [];
+        let kept = 0;
         // US warehouse first (fast delivery), then CJ's other warehouses.
         for (const country of ["US", undefined] as const) {
-          if (rows.length >= per) break;
-          const { items } = await cjList({ categoryId: id, countryCode: country, freeShip: true, maxUsd: cap });
+          if (kept >= per || Date.now() - t0 > BUDGET_MS) break;
+          const { items } = await cjList({ categoryId: id, countryCode: country, maxUsd: cap });
           seen += items.length;
+          const warehouse = country ?? "CN";
           for (const h of items) {
-            if (rows.length >= per) break;
-            const usd = lowPrice(h);
+            if (kept >= per || Date.now() - t0 > BUDGET_MS) break;
             const title = h.nameEn ?? "";
-            if (!h.id || !title || !isFinite(usd) || usd < 3 || usd > cap) continue;
+            const listUsd = lowPrice(h);
+            if (!h.id || !title || !isFinite(listUsd) || listUsd < 2 || listUsd > cap) continue;
             if (NOT_GIFTS.some((w) => title.toLowerCase().includes(w))) continue;
-            if (maxDays(h.deliveryCycle) > MAX_DAYS) continue;
             const sku = `cj-${h.id}`.toLowerCase().slice(0, 60);
-            if (rows.some((r) => r.sku === sku)) continue;
-            rows.push({
+            if (known.has(sku)) { kept++; continue; }
+
+            // The cheapest variant and CJ's cheapest shipping to the US for it.
+            const detail = await cjProduct(h.id, country);
+            const v = [...(detail.variants ?? [])].filter((x) => x.vid && Number(x.variantSellPrice) > 0)
+              .sort((a, b) => Number(a.variantSellPrice) - Number(b.variantSellPrice))[0];
+            if (!v) continue;
+            let shipUsd = 0;
+            if (h.addMarkStatus !== 1) {
+              let ship;
+              try { ship = await cheapestShipping(v.vid, warehouse, "US"); } catch { continue; }
+              if (maxDays(ship.days) > MAX_DAYS) continue;
+              shipUsd = ship.usd;
+            }
+            const cents = Math.round(Number(v.variantSellPrice) * 100) + Math.round(shipUsd * 100);
+            if (cents > (cap + 15) * 100) continue;
+
+            const { error } = await db.from("products").upsert({
               sku,
-              name: cleanName(title),
+              name: cleanName(detail.productNameEn || title),
               description: null,
-              price_cents: Math.round(usd * 100), // CJ ships it free; your markup goes on top
+              price_cents: cents, // item + shipping; your markup goes on top
               tags: c.tags,
               styles: c.styles,
               occasions: c.occasions ?? [],
@@ -107,17 +133,15 @@ async function pull(db: Db, batch: FeedCategory[], per: number) {
               age_min: c.ages[0],
               age_max: c.ages[1],
               emoji: c.emoji,
-              image_url: h.bigImage ?? null,
+              image_url: v.variantImage || detail.bigImage || h.bigImage || null,
               ships_by: "supplier",
-              supplier_ref: `cj:pid:${h.id}${country === "US" ? "" : "@CN"}`,
+              supplier_ref: `cj:${v.vid}${warehouse === "US" ? "" : "@CN"}`,
               active: true,
-            });
+            }, { onConflict: "sku" });
+            if (error) throw new Error(`save: ${error.message}`);
+            known.add(sku);
+            kept++; saved++;
           }
-        }
-        if (rows.length) {
-          const { error } = await db.from("products").upsert(rows, { onConflict: "sku" });
-          if (error) throw new Error(`save: ${error.message}`);
-          saved += rows.length;
         }
       }
       results.push({ name: c.name, saved, seen });
@@ -125,5 +149,5 @@ async function pull(db: Db, batch: FeedCategory[], per: number) {
       results.push({ name: c.name, saved, seen, error: String((e as Error).message ?? e).slice(0, 200) });
     }
   }
-  return results;
+  return { stoppedAt, seconds: Math.round((Date.now() - t0) / 1000), results };
 }
