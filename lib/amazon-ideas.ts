@@ -71,8 +71,9 @@ const FALLBACK: [string, string][] = [["Unique gift idea", "🎁"], ["Gift baske
 export function amazonIdeas(c: Criteria, pickTags: string[] = [], n = 10): AmazonIdea[] {
   const avoid = new Set(c.avoid ?? []);
   const sources: [string, string][][] = [];
-  for (const t of [...new Set([...(c.likes ?? []), ...(c.boost ?? []), ...pickTags])]) if (!avoid.has(t) && BY_INTEREST[t]) sources.push(BY_INTEREST[t]);
+  // Their chosen styles lead, then what they like, then what the picks above are about.
   for (const s of c.styles ?? []) if (BY_STYLE[s]) sources.push(BY_STYLE[s]);
+  for (const t of [...new Set([...(c.likes ?? []), ...(c.boost ?? []), ...pickTags])]) if (!avoid.has(t) && BY_INTEREST[t]) sources.push(BY_INTEREST[t]);
   if (c.occasion && BY_OCCASION[c.occasion]) sources.push(BY_OCCASION[c.occasion]);
   sources.push(FALLBACK);
 
@@ -104,7 +105,7 @@ const STYLE_TAGS: Record<string, string[]> = {
  * that suit this person, best match first. No prices or pictures: Amazon only
  * allows those from its own API.
  */
-export async function amazonItems(c: Criteria, n = 5): Promise<AmazonIdea[]> {
+export async function amazonItems(c: Criteria, n = 5): Promise<(AmazonIdea & { tags: string[] })[]> {
   const { data } = await supabaseAdmin().from("amazon_items")
     .select("url, name, emoji, image_src, embed_src, tags, occasions, sex, age_min, age_max, price_usd, rank").eq("active", true).limit(2000);
   const avoid = new Set(c.avoid ?? []);
@@ -122,11 +123,13 @@ export async function amazonItems(c: Criteria, n = 5): Promise<AmazonIdea[]> {
       + trendScore(x.name, c.age, c.sex) + (x.sex !== "any" ? 1 : 0) + (x.rank != null ? (11 - Math.min(x.rank, 10)) * 0.2 : 0) }))
     .sort((a, b) => b.score - a.score)
     .slice(0, n)
-    .map(({ x }) => ({ label: x.name, emoji: x.emoji || "🎁", url: x.url, kind: "item" as const, image: x.image_src, embed: x.embed_src }));
+    .map(({ x }) => ({ label: x.name, emoji: x.emoji || "🎁", url: x.url, kind: "item" as const, image: x.image_src, embed: x.embed_src, tags: x.tags }));
 }
 
 /** Five real Amazon products when you've added them, then searches to make ten. */
 export async function amazonFor(c: Criteria, pickTags: string[] = []): Promise<AmazonIdea[]> {
   const items = await amazonItems(c, 5).catch(() => []);
-  return [...items, ...amazonIdeas(c, pickTags, 10 - items.length)];
+  // The broader searches follow the hand-picked items first, since those are matched to age and budget.
+  const ideas = amazonIdeas(c, [...items.flatMap((i) => i.tags), ...pickTags], 10 - items.length);
+  return [...items.map(({ tags: _t, ...i }) => i), ...ideas];
 }
