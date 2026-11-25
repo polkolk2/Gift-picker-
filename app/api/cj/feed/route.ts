@@ -97,8 +97,9 @@ async function pull(db: Db, batch: FeedCategory[], per: number, startAt = 0) {
       for (const id of c.ids) {
         const cap = c.maxUsd ?? 80;
         let kept = 0;
-        // US warehouse first (fast delivery), then CJ's other warehouses.
-        for (const country of ["US", undefined] as const) {
+        // US warehouses only, for fast delivery. Set CJ_ALLOW_CHINA=1 to also take
+        // items from CJ's China warehouses.
+        for (const country of (process.env.CJ_ALLOW_CHINA === "1" ? ["US", undefined] : ["US"]) as ("US" | undefined)[]) {
           if (kept >= per || Date.now() - t0 > BUDGET_MS) break;
           const { items } = await cjList({ categoryId: id, countryCode: country, maxUsd: cap });
           seen += items.length;

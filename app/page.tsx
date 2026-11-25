@@ -1,42 +1,59 @@
 import Link from "next/link";
+import { supabaseAdmin } from "@/lib/supabase/server";
 
-export default function Home() {
+export const revalidate = 3600;
+
+/** Four product photos for the hero, from the live catalog. */
+async function heroPhotos(): Promise<{ src: string; name: string }[]> {
+  try {
+    const { data } = await supabaseAdmin().from("products").select("name, image_url, popularity")
+      .eq("active", true).not("image_url", "is", null).order("popularity", { ascending: false }).limit(4);
+    return (data ?? []).map((r) => ({ src: r.image_url as string, name: r.name as string }));
+  } catch { return []; }
+}
+
+export default async function Home() {
+  const photos = await heroPhotos();
   return (
-    <main className="stack" style={{ gap: 32 }}>
+    <main className="stack" style={{ gap: 56 }}>
       <section className="hero">
-        <div className="stack">
-          <h1>The right gift, picked in a minute.</h1>
+        <div className="stack" style={{ gap: 20 }}>
+          <span className="kicker">Gifts, thoughtfully chosen</span>
+          <h1>The right gift for the people you love.</h1>
           <p className="muted">
-            Tell us the occasion, a price and what they&rsquo;re into. We show three hand-picked ideas, then three more,
-            then ask a few quick questions if none fit. Save your people and we&rsquo;ll remind you before every big day.
+            Tell us who it&rsquo;s for, the occasion and your budget. We suggest three gifts worth giving,
+            with shipping included in one simple price.
           </p>
-          <div className="row">
-            <Link className="btn big" href="/find">Find a gift now</Link>
-            <Link className="btn ghost" href="/login">Save my people</Link>
+          <div className="row" style={{ gap: 12 }}>
+            <Link className="btn big" href="/find">Find a gift</Link>
+            <Link className="btn ghost big" href="/login">Save my people</Link>
           </div>
-          <span className="muted" style={{ fontSize: 13 }}>No sign-up needed to see ideas.</span>
           <ul className="trust">
-            <li>One price, shipping included, no fees</li>
-            <li>No address? Text a link they can swap</li>
-            <li>Secure checkout by Stripe</li>
+            <li>Shipping included</li>
+            <li>Send by text, they add the address</li>
+            <li>Secure checkout</li>
           </ul>
         </div>
-        <div className="hero-art" aria-hidden>🎁</div>
+        {photos.length >= 2 && (
+          <div className="hero-art" aria-hidden>
+            {photos.map((p) => <figure key={p.src}><img src={p.src} alt="" loading="eager" /></figure>)}
+          </div>
+        )}
       </section>
 
-      <section className="stack">
-        <h2>How it works</h2>
+      <section className="stack" style={{ gap: 20 }}>
+        <span className="eyebrow">How it works</span>
         <ol className="how">
-          <li><h3>Pick the occasion</h3><span className="muted">Birthday, graduation, new baby and more, then a price and a style.</span></li>
-          <li><h3>Choose from 3 ideas</h3><span className="muted">Not right? See 3 more, then answer a few quick questions.</span></li>
-          <li><h3>We send it</h3><span className="muted">To their address, or by a text or email link where they add it and can swap.</span></li>
+          <li><h3>Tell us about them</h3><span className="muted">Their age, the occasion, your budget and the kind of gift they&rsquo;d love.</span></li>
+          <li><h3>Choose from three</h3><span className="muted">A short, considered list. Not quite right? We&rsquo;ll show three more.</span></li>
+          <li><h3>We send it</h3><span className="muted">To their door, or by a link where they add their address and can swap.</span></li>
         </ol>
       </section>
 
-      <section className="card row" style={{ justifyContent: "space-between" }}>
+      <section className="band row" style={{ justifyContent: "space-between", gap: 20 }}>
         <div className="stack tight">
           <h2>Gifts for your team</h2>
-          <span className="muted">Upload employees once and never miss a birthday or work anniversary.</span>
+          <span className="muted">Add your team once, and never miss a birthday or work anniversary.</span>
         </div>
         <Link className="btn ghost" href="/business">For businesses</Link>
       </section>

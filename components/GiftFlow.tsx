@@ -7,10 +7,6 @@ import type { AmazonIdea } from "@/lib/amazon-ideas";
 type Question = { q: string; options: string[] };
 type Delivery = "text" | "link" | "ship";
 const money = (c: number) => `$${(c / 100).toFixed(2)}`;
-const OCC_ICON: Record<string, string> = {
-  birthday: "🎂", holiday: "🎄", graduation: "🎓", wedding: "💍", "new baby": "🍼", anniversary: "💞",
-  "work anniversary": "🏆", "thank you": "🙏", "get well": "🌷", housewarming: "🏡",
-};
 const cap = (s: string) => s[0].toUpperCase() + s.slice(1);
 // Age choices: each year through 21, then a range (sent as its middle age).
 const AGES: { label: string; value: string }[] = [
@@ -130,7 +126,7 @@ export default function GiftFlow(props: {
 
   return (
     <section className="panel stack">
-      <h2>{quick ? "Find a gift" : `Find a gift for ${props.name}`}</h2>
+      <h2>{quick ? "About them" : `A gift for ${props.name}`}</h2>
 
       {quick && (
         <div className="row">
@@ -141,18 +137,18 @@ export default function GiftFlow(props: {
       )}
 
       <div className="stack tight">
-        <span className="step">1 · Occasion</span>
+        <span className="step">01 · The occasion</span>
         <div className="chips">
           {OCCASIONS.map((o) => (
             <button key={o} type="button" className={`chip ${occasion === o ? "on" : ""}`} aria-pressed={occasion === o} onClick={() => { setOccasion(o); }}>
-              <span aria-hidden>{OCC_ICON[o] ?? "🎁"}</span> {cap(o)}
+              {cap(o)}
             </button>
           ))}
         </div>
       </div>
 
       <div className="stack tight">
-        <span className="step">2 · Price, shipping included</span>
+        <span className="step">02 · Your budget, shipping included</span>
         <div className="chips">
           {!quick && <button type="button" className={`chip ${band === -1 ? "on" : ""}`} onClick={() => { setBand(-1); }}>{props.budgetLabel ?? "Their usual budget"}</button>}
           {PRICE_BANDS.map((b, i) => (
@@ -162,7 +158,7 @@ export default function GiftFlow(props: {
       </div>
 
       <div className="stack tight">
-        <span className="step">3 · What kind of gift? Up to 3, or none</span>
+        <span className="step">03 · Their style, up to three</span>
         <div className="chips">
           {STYLES.map((s) => (
             <button key={s} type="button" className={`chip ${styles.includes(s) ? "on" : ""}`} aria-pressed={styles.includes(s)} onClick={() => { toggleStyle(s); }}>{cap(s)}</button>
@@ -172,14 +168,14 @@ export default function GiftFlow(props: {
 
       {perk > 0 && <p className="perk-note">Your {perk}% family discount comes off your next gift.</p>}
 
-      {round === 0 && <button className="btn big" onClick={nextRound}>Show me 3 ideas</button>}
+      {round === 0 && <button className="btn big" onClick={nextRound}>Show me three gifts</button>}
 
       {picks.length > 0 && (
         <div className="grid">
           {picks.map((p, i) => (
             <article key={p.sku} className="gift">
               <div className="thumb" aria-hidden>
-                {p.image ? <img src={p.image} alt="" loading="lazy" /> : <span>{p.emoji || "🎁"}</span>}
+                {p.image ? <img src={p.image} alt="" loading="lazy" /> : <span>{p.emoji || ""}</span>}
                 {round === 1 && i === 0 && <span className="badge">Best match</span>}
               </div>
               <h3>{p.name}</h3>
@@ -198,8 +194,8 @@ export default function GiftFlow(props: {
       {picks.length > 0 && amazon.length > 0 && (
         <section className="amazon stack tight" aria-labelledby="amazon-ideas">
           <div className="amazon-banner">
-            <h3 id="amazon-ideas">More gift ideas on Amazon</h3>
-            <span className="muted">Opens Amazon in a new tab, where you&rsquo;ll see prices. Paid links.</span>
+            <h3 id="amazon-ideas">Also worth a look</h3>
+            <span className="muted">Our picks on Amazon. Opens in a new tab. Paid links.</span>
           </div>
           {amazon.some((x) => x.kind === "item") && (
             <ul className="amazon-list">
@@ -207,16 +203,16 @@ export default function GiftFlow(props: {
                 <li key={x.url} className={x.embed ? "amazon-embed" : x.image ? "amazon-pic" : undefined}>
                   {x.embed
                     ? <iframe src={x.embed} title={x.label} width={120} height={240} loading="lazy" sandbox="allow-popups allow-scripts allow-same-origin allow-popups-to-escape-sandbox" style={{ border: 0 }} />
-                    : <a href={x.url} target="_blank" rel={AMAZON_REL}>{x.image ? <img src={x.image} alt="" width={80} height={80} loading="lazy" /> : <span aria-hidden>{x.emoji}</span>} {x.label}</a>}
+                    : <a href={x.url} target="_blank" rel={AMAZON_REL}>{x.image && <img src={x.image} alt="" width={80} height={80} loading="lazy" />}<span>{x.label}</span></a>}
                 </li>
               ))}
             </ul>
           )}
-          {amazon.some((x) => x.kind === "item") && <span className="muted">Or browse:</span>}
+          {amazon.some((x) => x.kind === "item") && <span className="step" style={{ marginTop: 10 }}>Or browse</span>}
           <ul className="amazon-list">
             {amazon.filter((x) => x.kind !== "item").map((x) => (
               <li key={x.url}>
-                <a href={x.url} target="_blank" rel={AMAZON_REL}><span aria-hidden>{x.emoji}</span> {x.label}</a>
+                <a href={x.url} target="_blank" rel={AMAZON_REL}><span>{x.label}</span></a>
               </li>
             ))}
           </ul>

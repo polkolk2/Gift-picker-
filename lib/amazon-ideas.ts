@@ -90,7 +90,14 @@ export function amazonIdeas(c: Criteria, pickTags: string[] = [], n = 10): Amazo
   return out.map(([label, emoji]) => ({ label, emoji, url: amazonLink({ query: `${label}${forWho}` }), kind: "search" as const }));
 }
 
-type AmazonItemRow = { url: string; name: string; emoji: string | null; image_src: string | null; embed_src: string | null; tags: string[]; occasions: string[]; sex: string; age_min: number; age_max: number };
+type AmazonItemRow = { url: string; name: string; emoji: string | null; image_src: string | null; embed_src: string | null; tags: string[]; occasions: string[]; sex: string; age_min: number; age_max: number; price_usd: number | null; rank: number | null };
+
+// Styles map to the item tags that fit them, so a "classy" or "techy" choice favors those picks.
+const STYLE_TAGS: Record<string, string[]> = {
+  classy: ["jewelry", "fashion", "perfume", "unique"], "personal care": ["grooming", "skincare", "beauty", "wellness", "perfume"],
+  techy: ["tech", "gadgets"], outdoor: ["outdoors", "hiking", "sports"], cozy: ["home", "wellness"], creative: ["art", "crafts", "music"],
+  foodie: ["cooking", "coffee", "tea", "bbq"], fun: ["gaming", "board games", "unique"], practical: ["home", "travel", "tech"],
+};
 
 /**
  * Up to `n` real Amazon products you added on /admin (from SiteStripe links)
@@ -99,15 +106,20 @@ type AmazonItemRow = { url: string; name: string; emoji: string | null; image_sr
  */
 export async function amazonItems(c: Criteria, n = 5): Promise<AmazonIdea[]> {
   const { data } = await supabaseAdmin().from("amazon_items")
-    .select("url, name, emoji, image_src, embed_src, tags, occasions, sex, age_min, age_max").eq("active", true).limit(500);
+    .select("url, name, emoji, image_src, embed_src, tags, occasions, sex, age_min, age_max, price_usd, rank").eq("active", true).limit(2000);
   const avoid = new Set(c.avoid ?? []);
   const likes = new Set([...(c.likes ?? []), ...(c.boost ?? [])]);
+  const styled = new Set((c.styles ?? []).flatMap((s) => STYLE_TAGS[s] ?? []));
+  // Hand-picked items carry a typical price; keep them inside the chosen budget (with a little give).
+  const lo = c.minCents / 100 * 0.85, hi = c.maxCents / 100 * 1.1;
   return ((data ?? []) as AmazonItemRow[])
     .filter((x) => (c.age == null || (c.age >= x.age_min && c.age <= x.age_max))
       && (!c.sex || c.sex === "any" || x.sex === "any" || x.sex === c.sex)
       && !x.tags.some((t) => avoid.has(t))
-      && (!c.occasion || !x.occasions.length || x.occasions.includes(c.occasion)))
-    .map((x) => ({ x, score: x.tags.filter((t) => likes.has(t)).length * 3 + trendScore(x.name, c.age, c.sex) + (x.sex !== "any" ? 1 : 0) }))
+      && (!c.occasion || !x.occasions.length || x.occasions.includes(c.occasion))
+      && (x.price_usd == null || !c.maxCents || (x.price_usd >= lo && x.price_usd <= hi)))
+    .map((x) => ({ x, score: x.tags.filter((t) => likes.has(t)).length * 3 + x.tags.filter((t) => styled.has(t)).length * 2
+      + trendScore(x.name, c.age, c.sex) + (x.sex !== "any" ? 1 : 0) + (x.rank != null ? (11 - Math.min(x.rank, 10)) * 0.2 : 0) }))
     .sort((a, b) => b.score - a.score)
     .slice(0, n)
     .map(({ x }) => ({ label: x.name, emoji: x.emoji || "🎁", url: x.url, kind: "item" as const, image: x.image_src, embed: x.embed_src }));

@@ -10,8 +10,9 @@ export default async function Find() {
   const perk = user ? await perkState(supabase, user.id) : null;
   return (
     <main className="stack">
+      <span className="kicker">The gift finder</span>
       <h1>Find a gift</h1>
-      <p className="muted">Pick the occasion, a price and the kind of gift. You&rsquo;ll see three ideas, then three more, then a few quick questions if none fit.</p>
+      <p className="muted" style={{ maxWidth: "34em" }}>A few details about them, and we&rsquo;ll suggest three gifts worth giving.</p>
       <GiftFlow signedIn={!!user} perkPercent={perk?.has && perk.ready ? PERK_PERCENT : 0} />
     </main>
   );
