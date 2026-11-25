@@ -120,9 +120,10 @@ export type CjListItem = CjHit & {
 };
 
 /** One page (up to 100) of a CJ category, optionally only free-shipping items stocked in a country. */
-export async function cjList(o: { categoryId?: string; lv2?: string; countryCode?: string; freeShip?: boolean; page?: number; size?: number; maxUsd?: number; minUsd?: number }) {
+export async function cjList(o: { categoryId?: string; keyWord?: string; lv2?: string; countryCode?: string; freeShip?: boolean; page?: number; size?: number; maxUsd?: number; minUsd?: number }) {
   const data = await get<{ totalRecords?: number; content?: { productList?: CjListItem[] }[] }>("/product/listV2", {
     categoryId: o.categoryId,
+    keyWord: o.keyWord,
     lv2categoryList: o.lv2,
     countryCode: o.countryCode,
     addMarkStatus: o.freeShip ? 1 : undefined,

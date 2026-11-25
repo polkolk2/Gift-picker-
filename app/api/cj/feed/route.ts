@@ -94,14 +94,15 @@ async function pull(db: Db, batch: FeedCategory[], per: number, startAt = 0) {
     if (Date.now() - t0 > BUDGET_MS) { stoppedAt = startAt + k; break; }
     let saved = 0, seen = 0;
     try {
-      for (const id of c.ids) {
+      // A category is CJ category ids, or search words (kw:...) that reach across categories.
+      for (const id of [...c.ids, ...(c.keywords ?? []).map((k) => `kw:${k}`)]) {
         const cap = c.maxUsd ?? 80, floor = c.minUsd ?? 2;
         let kept = 0;
         // US warehouses only, for fast delivery. Set CJ_ALLOW_CHINA=1 to also take
         // items from CJ's China warehouses.
         for (const country of (process.env.CJ_ALLOW_CHINA === "1" ? ["US", undefined] : ["US"]) as ("US" | undefined)[]) {
           if (kept >= per || Date.now() - t0 > BUDGET_MS) break;
-          const { items } = await cjList({ categoryId: id, countryCode: country, maxUsd: cap, minUsd: c.minUsd });
+          const { items } = await cjList({ ...(id.startsWith("kw:") ? { keyWord: id.slice(3) } : { categoryId: id }), countryCode: country, maxUsd: cap, minUsd: c.minUsd });
           seen += items.length;
           const warehouse = country ?? "CN";
           for (const [pos, h] of items.entries()) {

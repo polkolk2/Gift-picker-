@@ -16,6 +16,7 @@ export type FeedCategory = {
   emoji: string;
   maxUsd?: number; // CJ price cap, 80 by default
   minUsd?: number; // skip anything cheaper (for the pricier gifts below)
+  keywords?: string[]; // CJ searches across categories, used with or instead of ids
 };
 
 export const FEED_CATEGORIES: FeedCategory[] = [
@@ -111,3 +112,17 @@ for (const n of PREMIUM) {
   const c = FEED_CATEGORIES.find((x) => x.name === n);
   if (c) FEED_CATEGORIES.push({ ...c, name: `${c.name}, pricier`, ages: [Math.max(14, c.ages[0]), c.ages[1]], minUsd: 45, maxUsd: 220 });
 }
+
+// Searches across all of CJ's categories, since few of its US-stocked items over
+// $45 sit in the categories above. Mostly for men, then gadgets and home.
+export const SEARCH_FROM = FEED_CATEGORIES.length;
+const S = { ids: [] as string[], minUsd: 45, maxUsd: 220 };
+FEED_CATEGORIES.push(
+  { ...S, name: "His style", keywords: ["men watch", "leather wallet men", "leather briefcase", "men leather belt", "cufflinks", "men leather bag"], tags: ["fashion"], styles: ["classy"], sex: "m", ages: [18, 99], emoji: "⌚" },
+  { ...S, name: "His grooming", keywords: ["electric shaver", "beard trimmer", "hair clipper", "grooming kit men"], tags: ["beauty"], styles: ["personal care", "practical"], sex: "m", ages: [16, 99], emoji: "🪒" },
+  { ...S, name: "His outdoors", keywords: ["fishing rod reel combo", "golf", "camping stove", "tactical backpack", "telescope", "binoculars"], tags: ["outdoors", "sports"], styles: ["outdoor"], ages: [16, 99], emoji: "🏕️" },
+  { ...S, name: "Grill and bar", keywords: ["whiskey decanter", "bbq tool set", "pizza oven", "coffee grinder", "espresso"], tags: ["cooking", "bbq", "coffee"], styles: ["foodie", "classy"], ages: [21, 99], emoji: "🥃" },
+  { ...S, name: "Gadgets", keywords: ["smart watch", "bluetooth speaker", "wireless earbuds", "drone camera", "mini projector", "massage gun", "digital photo frame", "dash cam"], tags: ["tech", "gadgets"], styles: ["techy", "fun"], ages: [14, 99], emoji: "📱" },
+  { ...S, name: "Relax at home", keywords: ["foot massager", "neck massager", "heated blanket", "massage cushion"], tags: ["wellness", "home"], styles: ["cozy", "personal care"], ages: [18, 99], emoji: "💆" },
+  { ...S, name: "Her classics", keywords: ["jewelry box", "silk pajamas", "leather handbag women", "pearl necklace"], tags: ["fashion", "jewelry"], styles: ["classy"], sex: "f", ages: [18, 99], emoji: "👜" },
+);
