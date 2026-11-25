@@ -3,12 +3,16 @@ import { supabaseAdmin } from "@/lib/supabase/server";
 
 export const revalidate = 3600;
 
-/** Four product photos for the hero, from the live catalog. */
+// Hand-chosen catalog items whose photos set the tone; any that go inactive are skipped.
+const HERO = ["cj-1380051244839735296", "cj-1706231710008365056", "cj-1412274952509460480", "cj-1900382647983722497", "cj-1871464783754596353", "cj-1925480512280887298"];
+
+/** Up to four product photos for the hero, from the live catalog. */
 async function heroPhotos(): Promise<{ src: string; name: string }[]> {
   try {
-    const { data } = await supabaseAdmin().from("products").select("name, image_url, popularity")
-      .eq("active", true).not("image_url", "is", null).order("popularity", { ascending: false }).limit(4);
-    return (data ?? []).map((r) => ({ src: r.image_url as string, name: r.name as string }));
+    const { data } = await supabaseAdmin().from("products").select("sku, name, image_url")
+      .eq("active", true).not("image_url", "is", null).in("sku", HERO);
+    return (data ?? []).sort((a, b) => HERO.indexOf(a.sku) - HERO.indexOf(b.sku)).slice(0, 4)
+      .map((r) => ({ src: r.image_url as string, name: r.name as string }));
   } catch { return []; }
 }
 
