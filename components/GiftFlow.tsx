@@ -1,6 +1,8 @@
 "use client";
 import { useState } from "react";
 import { OCCASIONS, PRICE_BANDS, STYLES, type PublicPick } from "@/lib/types";
+import { AMAZON_REL, ASSOCIATE_STATEMENT } from "@/lib/amazon";
+import type { AmazonIdea } from "@/lib/amazon-ideas";
 
 type Question = { q: string; options: string[] };
 type Delivery = "text" | "link" | "ship";
@@ -32,6 +34,7 @@ export default function GiftFlow(props: {
   const [styles, setStyles] = useState<string[]>([]);
   const [round, setRound] = useState(0);
   const [picks, setPicks] = useState<PublicPick[]>([]);
+  const [amazon, setAmazon] = useState<AmazonIdea[]>([]);
   const [shown, setShown] = useState<string[]>([]);
   const [questions, setQuestions] = useState<Question[]>([]);
   const [answers, setAnswers] = useState<Record<number, string>>({});
@@ -60,24 +63,24 @@ export default function GiftFlow(props: {
   function toggleStyle(s: string) {
     setStyles((cur) => (cur.includes(s) ? cur.filter((x) => x !== s) : cur.length < 3 ? [...cur, s] : cur));
   }
-  function restart() { setRound(0); setPicks([]); setShown([]); setQuestions([]); setAnswers({}); }
+  function restart() { setRound(0); setPicks([]); setAmazon([]); setShown([]); setQuestions([]); setAnswers({}); }
 
   async function nextRound() {
     if (round >= 2) {
       setBusy("Thinking of a few questions...");
       const { questions } = await post("/api/questions", finderBody());
-      setQuestions(questions ?? []); setPicks([]); setRound(3); setBusy("");
+      setQuestions(questions ?? []); setPicks([]); setAmazon([]); setRound(3); setBusy("");
       return;
     }
     setBusy("Finding ideas...");
-    const { picks: p } = await post("/api/picks", finderBody());
-    setPicks(p ?? []); setShown([...shown, ...(p ?? []).map((x: PublicPick) => x.sku)]); setRound(round + 1); setBusy("");
+    const { picks: p, amazon: a } = await post("/api/picks", finderBody());
+    setPicks(p ?? []); setAmazon(a ?? []); setShown([...shown, ...(p ?? []).map((x: PublicPick) => x.sku)]); setRound(round + 1); setBusy("");
   }
   async function finish() {
     setBusy("Picking the best three...");
     const qa = questions.map((q, i) => ({ q: q.q, a: answers[i] }));
-    const { picks: p } = await post("/api/picks", finderBody({ answers: qa }));
-    setPicks(p ?? []); setQuestions([]); setBusy("");
+    const { picks: p, amazon: a } = await post("/api/picks", finderBody({ answers: qa }));
+    setPicks(p ?? []); setAmazon(a ?? []); setQuestions([]); setBusy("");
   }
   async function buy(sku: string) {
     if (!props.signedIn) { window.location.href = "/login"; return; }
@@ -162,6 +165,23 @@ export default function GiftFlow(props: {
             </article>
           ))}
         </div>
+      )}
+
+      {picks.length > 0 && amazon.length > 0 && (
+        <section className="amazon stack tight" aria-labelledby="amazon-ideas">
+          <div className="amazon-banner">
+            <h3 id="amazon-ideas">More gift ideas on Amazon</h3>
+            <span className="muted">Opens Amazon in a new tab, where you&rsquo;ll see prices. Paid links.</span>
+          </div>
+          <ul className="amazon-list">
+            {amazon.map((x) => (
+              <li key={x.label}>
+                <a href={x.url} target="_blank" rel={AMAZON_REL}><span aria-hidden>{x.emoji}</span> {x.label}</a>
+              </li>
+            ))}
+          </ul>
+          <small className="muted">{ASSOCIATE_STATEMENT}</small>
+        </section>
       )}
 
       {round > 0 && round < 3 && picks.length > 0 && (

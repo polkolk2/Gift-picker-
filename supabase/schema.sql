@@ -186,3 +186,11 @@ create table if not exists perks (
 alter table perks enable row level security;
 drop policy if exists "read own perk" on perks;
 create policy "read own perk" on perks for select using (user_id = auth.uid());
+
+-- Access tokens for supplier APIs (CJdropshipping). Server only: RLS on, no policies.
+create table if not exists supplier_tokens (
+  supplier   text primary key,
+  token      text not null,
+  expires_at timestamptz not null
+);
+alter table supplier_tokens enable row level security;

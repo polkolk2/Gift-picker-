@@ -3,6 +3,7 @@ import { requireUser } from "@/lib/supabase/server";
 import { productSource, rank, toPublic } from "@/lib/catalog";
 import { choosePicks } from "@/lib/ai";
 import { applyFallbackAnswers, readFinder } from "@/lib/finder";
+import { amazonIdeas } from "@/lib/amazon-ideas";
 
 // POST finder body (see lib/finder.ts), plus answers?: {q,a}[] in round 3.
 // Rounds 1 and 2 rank the catalog by occasion, price, style and likes.
@@ -20,10 +21,13 @@ export async function POST(req: Request) {
   if (user && answers.length) {
     try {
       const picks = await choosePicks(f.who, catalog, f.exclude, answers, f.occasion);
-      if (picks.length) return NextResponse.json({ picks: picks.map(toPublic), by: "claude" });
+      if (picks.length) return NextResponse.json({ picks: picks.map(toPublic), amazon: amazonIdeas(f.criteria, picks.flatMap((p) => p.tags)), by: "claude" });
     } catch (e) {
       console.error("choosePicks failed", e);
     }
   }
-  return NextResponse.json({ picks: rank(catalog, applyFallbackAnswers(f.criteria, answers)).map(toPublic), by: "ranking" });
+  const c = applyFallbackAnswers(f.criteria, answers);
+  const picks = rank(catalog, c);
+  // Under the picks: matching Amazon searches, as tagged affiliate links.
+  return NextResponse.json({ picks: picks.map(toPublic), amazon: amazonIdeas(c, picks.flatMap((p) => p.tags)), by: "ranking" });
 }

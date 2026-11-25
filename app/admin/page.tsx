@@ -13,6 +13,8 @@ export default async function Admin() {
   const db = supabaseAdmin();
   const { data: toShip } = await db.from("orders").select("id, product, ship_to, recipient_name, created_at")
     .eq("status", "ordered").like("fulfillment_ref", "manual:%").order("created_at");
+  const { data: atCj } = await db.from("orders").select("id, product, recipient_name, fulfillment_ref, created_at")
+    .eq("status", "ordered").like("fulfillment_ref", "cj:%").order("created_at", { ascending: false }).limit(20);
   const { data: products } = await db.from("products").select("sku, name, emoji, price_cents, styles, occasions, active").order("name");
 
   return (
@@ -30,6 +32,21 @@ export default async function Admin() {
             {o.ship_to && <span>{[o.ship_to.name, o.ship_to.line1, o.ship_to.line2, `${o.ship_to.city}, ${o.ship_to.state} ${o.ship_to.postal_code}`].filter(Boolean).join(", ")}</span>}
             <button className="btn ghost" type="submit">Mark shipped</button>
           </form>
+        ))}
+      </section>
+
+      <section className="stack">
+        <h2>Sent to CJdropshipping ({atCj?.length ?? 0})</h2>
+        <p className="muted">
+          {process.env.CJ_AUTO_PAY === "1"
+            ? "Paid from your CJ balance as each order comes in."
+            : "Waiting for you to pay them in CJ, under My Orders."}
+        </p>
+        {(atCj ?? []).map((o) => (
+          <div key={o.id} className="card">
+            <strong>{o.product.name}</strong>
+            <span className="muted">For {o.recipient_name ?? "someone"} · CJ order {String(o.fulfillment_ref).slice(3)}</span>
+          </div>
         ))}
       </section>
 
@@ -54,7 +71,7 @@ export default async function Admin() {
           <div className="row">
             <label style={{ flex: 2 }}>Image address<input name="image_url" /></label>
             <label>Shipped by<select name="ships_by" defaultValue="supplier"><option value="self">Me</option><option value="supplier">Supplier drop-ships</option></select></label>
-            <label>Supplier&rsquo;s product id<input name="supplier_ref" /></label>
+            <label>Supplier&rsquo;s product id<input name="supplier_ref" placeholder="CJ variant id (vid)" title="For CJdropshipping, the variant id (vid) of the exact item. Orders for it go to CJ automatically." /></label>
           </div>
           <label>Description<textarea name="description" rows={2} /></label>
           <button className="btn" type="submit">Save product</button>
