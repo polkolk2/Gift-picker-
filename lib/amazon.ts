@@ -31,3 +31,21 @@ export function amazonLink(x: { asin?: string | null; query?: string | null }) {
 
 /** rel for every Amazon link: paid link, no ranking credit, no window access. */
 export const AMAZON_REL = "sponsored nofollow noopener noreferrer";
+
+/**
+ * Checks a link pasted from Amazon (SiteStripe's amzn.to short link or an
+ * amazon.com product page) and returns the link to store, or null if it isn't
+ * Amazon's. A product page is rebuilt from its ASIN so it carries your tag.
+ */
+export function cleanAmazonUrl(raw: string): string | null {
+  let u: URL;
+  try { u = new URL(raw.trim()); } catch { return null; }
+  if (u.protocol !== "https:") return null;
+  const host = u.hostname.toLowerCase();
+  if (host === "amzn.to") return /^\/[A-Za-z0-9]{4,16}$/.test(u.pathname) ? `https://amzn.to${u.pathname}` : null;
+  if (host === "amazon.com" || host === "www.amazon.com") {
+    const asin = u.pathname.match(/\/(?:dp|gp\/product)\/([A-Z0-9]{10})/)?.[1];
+    return asin ? amazonLink({ asin }) : null;
+  }
+  return null;
+}

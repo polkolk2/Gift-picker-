@@ -1,5 +1,7 @@
 import type { Criteria } from "./catalog";
 import { amazonLink } from "./amazon";
+import { trendScore } from "./trending";
+import { supabaseAdmin } from "./supabase/server";
 
 /**
  * "More gift ideas on Amazon": up to 10 Amazon searches that match what the
@@ -10,7 +12,7 @@ import { amazonLink } from "./amazon";
  * kind of gift that opens Amazon's own search results. Once the API is on,
  * this can return real products instead.
  */
-export type AmazonIdea = { label: string; emoji: string; url: string };
+export type AmazonIdea = { label: string; emoji: string; url: string; kind?: "item" | "search" };
 
 // Kinds of gift for each interest (lib/types.ts INTERESTS), style and occasion.
 const BY_INTEREST: Record<string, [string, string][]> = {
@@ -85,5 +87,34 @@ export function amazonIdeas(c: Criteria, pickTags: string[] = [], n = 10): Amazo
     }
   }
   const forWho = c.age != null && c.age < 13 ? " for kids" : c.age != null && c.age < 18 ? " for teens" : c.sex === "f" ? " for her" : c.sex === "m" ? " for him" : "";
-  return out.map(([label, emoji]) => ({ label, emoji, url: amazonLink({ query: `${label}${forWho}` }) }));
+  return out.map(([label, emoji]) => ({ label, emoji, url: amazonLink({ query: `${label}${forWho}` }), kind: "search" as const }));
+}
+
+type AmazonItemRow = { url: string; name: string; emoji: string | null; tags: string[]; occasions: string[]; sex: string; age_min: number; age_max: number };
+
+/**
+ * Up to `n` real Amazon products you added on /admin (from SiteStripe links)
+ * that suit this person, best match first. No prices or pictures: Amazon only
+ * allows those from its own API.
+ */
+export async function amazonItems(c: Criteria, n = 5): Promise<AmazonIdea[]> {
+  const { data } = await supabaseAdmin().from("amazon_items")
+    .select("url, name, emoji, tags, occasions, sex, age_min, age_max").eq("active", true).limit(500);
+  const avoid = new Set(c.avoid ?? []);
+  const likes = new Set([...(c.likes ?? []), ...(c.boost ?? [])]);
+  return ((data ?? []) as AmazonItemRow[])
+    .filter((x) => (c.age == null || (c.age >= x.age_min && c.age <= x.age_max))
+      && (!c.sex || c.sex === "any" || x.sex === "any" || x.sex === c.sex)
+      && !x.tags.some((t) => avoid.has(t))
+      && (!c.occasion || !x.occasions.length || x.occasions.includes(c.occasion)))
+    .map((x) => ({ x, score: x.tags.filter((t) => likes.has(t)).length * 3 + trendScore(x.name, c.age, c.sex) + (x.sex !== "any" ? 1 : 0) }))
+    .sort((a, b) => b.score - a.score)
+    .slice(0, n)
+    .map(({ x }) => ({ label: x.name, emoji: x.emoji || "🎁", url: x.url, kind: "item" as const }));
+}
+
+/** Five real Amazon products when you've added them, then searches to make ten. */
+export async function amazonFor(c: Criteria, pickTags: string[] = []): Promise<AmazonIdea[]> {
+  const items = await amazonItems(c, 5).catch(() => []);
+  return [...items, ...amazonIdeas(c, pickTags, 10 - items.length)];
 }

@@ -3,7 +3,7 @@ import { requireUser, supabaseAdmin } from "@/lib/supabase/server";
 import { isAdmin } from "@/lib/admin";
 import { MARKUP_PERCENT, markupFor, money, shopperPrice } from "@/lib/pricing";
 import { OCCASIONS, STYLES } from "@/lib/types";
-import { markShipped, saveProduct, setActive } from "./actions";
+import { markShipped, saveAmazonItem, saveProduct, setActive, setAmazonActive } from "./actions";
 
 // Your own back office: orders to buy and ship, and the product list.
 // Only emails in ADMIN_EMAILS can open it.
@@ -15,6 +15,7 @@ export default async function Admin() {
     .eq("status", "ordered").like("fulfillment_ref", "manual:%").order("created_at");
   const { data: atCj } = await db.from("orders").select("id, product, recipient_name, fulfillment_ref, created_at")
     .eq("status", "ordered").like("fulfillment_ref", "cj:%").order("created_at", { ascending: false }).limit(20);
+  const { data: amazon } = await db.from("amazon_items").select("id, url, name, emoji, sex, age_min, age_max, active").order("created_at", { ascending: false });
   const { data: products } = await db.from("products").select("sku, name, emoji, price_cents, styles, occasions, active").order("name");
 
   return (
@@ -46,6 +47,35 @@ export default async function Admin() {
           <div key={o.id} className="card">
             <strong>{o.product.name}</strong>
             <span className="muted">For {o.recipient_name ?? "someone"} · CJ order {String(o.fulfillment_ref).slice(3)}</span>
+          </div>
+        ))}
+      </section>
+
+      <section className="stack">
+        <h2>Amazon items ({amazon?.length ?? 0})</h2>
+        <p className="muted">On Amazon, use SiteStripe&rsquo;s Get Link, Short link, then paste it here. Up to five of these show under the picks, before the Amazon searches. Amazon doesn&rsquo;t allow copied prices or pictures, so shoppers see those on Amazon.</p>
+        <form action={saveAmazonItem} className="card stack">
+          <div className="row">
+            <label style={{ flex: 2 }}>Amazon link<input name="url" required placeholder="https://amzn.to/..." /></label>
+            <label style={{ flex: 3 }}>Name shoppers see<input name="name" required maxLength={100} placeholder="Wireless earbuds with charging case" /></label>
+          </div>
+          <div className="row">
+            <label>Emoji<input name="emoji" maxLength={8} placeholder="🎁" style={{ width: 70 }} /></label>
+            <label>Ages<span className="row"><input name="age_min" type="number" defaultValue={0} style={{ width: 70 }} /> to <input name="age_max" type="number" defaultValue={120} style={{ width: 70 }} /></span></label>
+            <label>For<select name="sex" defaultValue="any"><option value="any">Anyone</option><option value="f">Her</option><option value="m">Him</option></select></label>
+            <label style={{ flex: 1 }}>Interests, comma separated<input name="tags" placeholder="tech, music" /></label>
+          </div>
+          <span className="muted">Occasions (leave all off for any occasion)</span>
+          <div className="chips">{OCCASIONS.map((s) => <label key={s} className="chip" style={{ flexDirection: "row" }}><input type="checkbox" name="occasions" value={s} /> {s}</label>)}</div>
+          <button className="btn" type="submit">Add Amazon item</button>
+        </form>
+        {(amazon ?? []).map((a) => (
+          <div key={a.id} className="card row" style={{ opacity: a.active ? 1 : 0.5, alignItems: "center" }}>
+            <span style={{ flex: 1 }}>{a.emoji ? `${a.emoji} ` : ""}<a href={a.url} target="_blank" rel="noopener noreferrer">{a.name}</a> <span className="muted">· {a.sex === "f" ? "her" : a.sex === "m" ? "him" : "anyone"}, {a.age_min} to {a.age_max}</span></span>
+            <form action={setAmazonActive}>
+              <input type="hidden" name="id" value={a.id} /><input type="hidden" name="active" value={String(!a.active)} />
+              <button className="btn ghost" type="submit">{a.active ? "Hide" : "Show"}</button>
+            </form>
           </div>
         ))}
       </section>

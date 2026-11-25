@@ -173,9 +173,19 @@ export default function GiftFlow(props: {
             <h3 id="amazon-ideas">More gift ideas on Amazon</h3>
             <span className="muted">Opens Amazon in a new tab, where you&rsquo;ll see prices. Paid links.</span>
           </div>
+          {amazon.some((x) => x.kind === "item") && (
+            <ul className="amazon-list">
+              {amazon.filter((x) => x.kind === "item").map((x) => (
+                <li key={x.url}>
+                  <a href={x.url} target="_blank" rel={AMAZON_REL}><span aria-hidden>{x.emoji}</span> {x.label}</a>
+                </li>
+              ))}
+            </ul>
+          )}
+          {amazon.some((x) => x.kind === "item") && <span className="muted">Or browse:</span>}
           <ul className="amazon-list">
-            {amazon.map((x) => (
-              <li key={x.label}>
+            {amazon.filter((x) => x.kind !== "item").map((x) => (
+              <li key={x.url}>
                 <a href={x.url} target="_blank" rel={AMAZON_REL}><span aria-hidden>{x.emoji}</span> {x.label}</a>
               </li>
             ))}

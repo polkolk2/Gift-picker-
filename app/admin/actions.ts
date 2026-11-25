@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { requireUser, supabaseAdmin } from "@/lib/supabase/server";
 import { isAdmin } from "@/lib/admin";
 import { OCCASIONS, STYLES } from "@/lib/types";
+import { cleanAmazonUrl } from "@/lib/amazon";
 
 async function guard() {
   const { user } = await requireUser();
@@ -46,5 +47,31 @@ export async function setActive(form: FormData) {
 export async function markShipped(form: FormData) {
   await guard();
   await supabaseAdmin().from("orders").update({ status: "shipped" }).eq("id", String(form.get("id"))).eq("status", "ordered");
+  revalidatePath("/admin");
+}
+
+/** Adds a real Amazon product from a SiteStripe link (or an amazon.com product page). */
+export async function saveAmazonItem(form: FormData) {
+  await guard();
+  const url = cleanAmazonUrl(String(form.get("url") ?? ""));
+  const name = String(form.get("name") ?? "").trim().slice(0, 100);
+  if (!url || !name) return;
+  await supabaseAdmin().from("amazon_items").upsert({
+    url,
+    name,
+    emoji: String(form.get("emoji") ?? "").trim().slice(0, 8) || null,
+    tags: list(form, "tags"),
+    occasions: form.getAll("occasions").map(String).filter((s) => (OCCASIONS as readonly string[]).includes(s)),
+    sex: ["f", "m"].includes(String(form.get("sex"))) ? String(form.get("sex")) : "any",
+    age_min: Number(form.get("age_min") ?? 0) || 0,
+    age_max: Number(form.get("age_max") ?? 120) || 120,
+    active: true,
+  }, { onConflict: "url" });
+  revalidatePath("/admin");
+}
+
+export async function setAmazonActive(form: FormData) {
+  await guard();
+  await supabaseAdmin().from("amazon_items").update({ active: form.get("active") === "true" }).eq("id", Number(form.get("id")));
   revalidatePath("/admin");
 }
