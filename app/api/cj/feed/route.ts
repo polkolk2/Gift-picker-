@@ -97,7 +97,7 @@ async function pull(db: Db, batch: FeedCategory[], per: number, startAt = 0) {
           const { items } = await cjList({ categoryId: id, countryCode: country, maxUsd: cap });
           seen += items.length;
           const warehouse = country ?? "CN";
-          for (const h of items) {
+          for (const [pos, h] of items.entries()) {
             if (kept >= per || Date.now() - t0 > BUDGET_MS) break;
             const title = h.nameEn ?? "";
             const listUsd = lowPrice(h);
@@ -136,6 +136,8 @@ async function pull(db: Db, batch: FeedCategory[], per: number, startAt = 0) {
               image_url: v.variantImage || detail.bigImage || h.bigImage || null,
               ships_by: "supplier",
               supplier_ref: `cj:${v.vid}${warehouse === "US" ? "" : "@CN"}`,
+              // CJ lists the most-stocked-by-stores items first.
+              popularity: Math.max(10, 100 - pos * 2),
               active: true,
             }, { onConflict: "sku" });
             if (error) throw new Error(`save: ${error.message}`);

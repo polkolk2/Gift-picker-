@@ -3,6 +3,7 @@ import { ageOn } from "./dates";
 import { supabaseAdmin } from "./supabase/server";
 import { CURATED, CURATED_PRODUCTS } from "./catalog-data";
 import { shopperPrice } from "./pricing";
+import { trendScore } from "./trending";
 import type { PublicPick } from "./types";
 
 /**
@@ -25,12 +26,12 @@ export const sampleSource: ProductSource = {
 
 type ProductRow = {
   sku: string; name: string; description: string | null; price_cents: number; tags: string[]; styles: string[];
-  occasions: string[]; sex: "f" | "m" | "any"; age_min: number; age_max: number; image_url: string | null; emoji: string | null; ships_by: "self" | "supplier";
+  occasions: string[]; sex: "f" | "m" | "any"; age_min: number; age_max: number; image_url: string | null; emoji: string | null; ships_by: "self" | "supplier"; popularity: number | null;
 };
-const COLS = "sku,name,description,price_cents,tags,styles,occasions,sex,age_min,age_max,image_url,emoji,ships_by";
+const COLS = "sku,name,description,price_cents,tags,styles,occasions,sex,age_min,age_max,image_url,emoji,ships_by,popularity";
 const fromRow = (r: ProductRow): Product => ({
   sku: r.sku, name: r.name, description: r.description, priceCents: r.price_cents, tags: r.tags, styles: r.styles,
-  occasions: r.occasions, sex: r.sex, ages: [r.age_min, r.age_max], image: r.image_url ?? undefined, emoji: r.emoji, source: r.ships_by,
+  occasions: r.occasions, sex: r.sex, ages: [r.age_min, r.age_max], image: r.image_url ?? undefined, emoji: r.emoji, source: r.ships_by, popularity: r.popularity ?? 0,
 });
 
 export const dbSource: ProductSource = {
@@ -89,6 +90,13 @@ export function rank(products: Product[], c: Criteria): Pick[] {
   if (pool.length < 3) pool = products.filter((p) => !exclude.has(p.sku) && pay(p) <= c.maxCents * 1.25);
   if (pool.length < 3) pool = products.filter((p) => !exclude.has(p.sku));
 
+  // Leave out what plainly doesn't suit them (a kids' toy for an adult, a
+  // women's necklace for a man), as long as enough is left to choose from.
+  const ageOk = (p: Product) => c.age == null || (c.age >= p.ages[0] && c.age <= p.ages[1]);
+  const sexOk = (p: Product) => p.sex === "any" || !c.sex || c.sex === "any" || p.sex === c.sex;
+  const suits = pool.filter((p) => ageOk(p) && sexOk(p));
+  if (suits.length >= 3) pool = suits;
+
   const scored = pool.map((p) => {
     let s = 0;
     for (const t of p.tags) { if (likes.has(t)) s += 3; if (dis.has(t)) s -= 6; if (plus.has(t)) s += 2; }
@@ -97,8 +105,11 @@ export function rank(products: Product[], c: Criteria): Pick[] {
     if (c.occasion && p.occasions.length) s += p.occasions.includes(c.occasion) ? 3 : -6;
     if (p.sex !== "any" && c.sex && c.sex !== "any" && p.sex !== c.sex) s -= 4;
     if (c.age != null && (c.age < p.ages[0] || c.age > p.ages[1])) s -= 5;
+    // What people this age and sex commonly get, and how widely it sells.
+    s += 3 * trendScore(p.name, c.age, c.sex);
+    s += Math.min(2, (p.popularity ?? 0) / 50);
     return { p, s };
-  }).sort((a, b) => b.s - a.s || a.p.priceCents - b.p.priceCents);
+  }).sort((a, b) => b.s - a.s || (b.p.popularity ?? 0) - (a.p.popularity ?? 0) || b.p.priceCents - a.p.priceCents);
 
   const why = (p: Product) => {
     const st = p.styles.filter((x) => styles.has(x));
@@ -138,5 +149,6 @@ export function toPublic(p: Pick): PublicPick {
   const out: Record<string, unknown> = { ...p, payCents: shopperPrice(p.priceCents) };
   delete out.priceCents;
   delete out.source;
+  delete out.popularity; // only used to choose picks
   return out as PublicPick;
 }

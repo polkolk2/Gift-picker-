@@ -40,12 +40,14 @@ export type Product = {
   description?: string | null;
   /** Who ships it: self (you), supplier (they drop-ship), or sample data. */
   source: "sample" | "self" | "supplier";
+  /** 0 to 100: how widely it sells (from the supplier), used when a profile says little. */
+  popularity?: number;
 };
 
 export type Pick = Product & { why: string };
 
 /** What the browser gets: the shopper's price, never your source price. */
-export type PublicPick = Omit<Pick, "priceCents" | "source"> & { payCents: number };
+export type PublicPick = Omit<Pick, "priceCents" | "source" | "popularity"> & { payCents: number };
 
 export const INTERESTS = [
   "cooking", "coffee", "tea", "outdoors", "hiking", "fitness", "sports", "tech", "gaming",
