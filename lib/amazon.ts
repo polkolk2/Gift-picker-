@@ -6,7 +6,9 @@
  * - No Amazon prices are shown anywhere. Amazon only allows prices that come
  *   from its Creators API or an Amazon-served link, so until that API is on,
  *   shoppers see the price on Amazon itself.
- * - No Amazon product images are stored or copied; items use an emoji.
+ * - No Amazon product images are stored or copied. An item shows Amazon's
+ *   picture only when you paste SiteStripe's Image or Text+Image code, and
+ *   then Amazon serves it from its own servers.
  * - Links go straight to amazon.com (no redirects or cloaking), open in a new
  *   tab, and are marked sponsored.
  * - Amazon links are only on the website, never in emails, texts or gift links.
@@ -48,4 +50,26 @@ export function cleanAmazonUrl(raw: string): string | null {
     return asin ? amazonLink({ asin }) : null;
   }
   return null;
+}
+
+/** True for Amazon's own ad-serving hosts, which SiteStripe image and widget code load from. */
+const isAdHost = (h: string) => /(^|\.)amazon-adsystem\.com$/i.test(h);
+const srcUrl = (raw: string) => {
+  try { const u = new URL(raw.replace(/&amp;/g, "&"), "https://ws-na.amazon-adsystem.com"); return u.protocol === "https:" && isAdHost(u.hostname) ? u.toString() : null; } catch { return null; }
+};
+
+/**
+ * Reads SiteStripe's Image or Text+Image code. Amazon serves the picture (and,
+ * for Text+Image, the name and price) itself, which Associates may show.
+ * Only the addresses are kept, never the pasted HTML.
+ */
+export function readSiteStripeCode(html: string): { url: string | null; imageSrc: string | null; embedSrc: string | null } {
+  const iframe = html.match(/<iframe[^>]*\ssrc=["']([^"']+)["']/i)?.[1];
+  const href = html.match(/<a[^>]*\shref=["']([^"']+)["']/i)?.[1];
+  const img = [...html.matchAll(/<img[^>]*\ssrc=["']([^"']+)["']/gi)].map((m) => m[1]).find((s) => /widgets\/q|images-amazon|media-amazon/i.test(s));
+  return {
+    url: href ? cleanAmazonUrl(href.replace(/&amp;/g, "&")) : null,
+    imageSrc: img ? srcUrl(img) : null,
+    embedSrc: iframe ? srcUrl(iframe) : null,
+  };
 }

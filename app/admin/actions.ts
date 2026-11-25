@@ -4,7 +4,7 @@ import { revalidatePath } from "next/cache";
 import { requireUser, supabaseAdmin } from "@/lib/supabase/server";
 import { isAdmin } from "@/lib/admin";
 import { OCCASIONS, STYLES } from "@/lib/types";
-import { cleanAmazonUrl } from "@/lib/amazon";
+import { cleanAmazonUrl, readSiteStripeCode } from "@/lib/amazon";
 
 async function guard() {
   const { user } = await requireUser();
@@ -53,12 +53,15 @@ export async function markShipped(form: FormData) {
 /** Adds a real Amazon product from a SiteStripe link (or an amazon.com product page). */
 export async function saveAmazonItem(form: FormData) {
   await guard();
-  const url = cleanAmazonUrl(String(form.get("url") ?? ""));
-  const name = String(form.get("name") ?? "").trim().slice(0, 100);
-  if (!url || !name) return;
+  const code = readSiteStripeCode(String(form.get("code") ?? ""));
+  const url = cleanAmazonUrl(String(form.get("url") ?? "")) ?? code.url;
+  const name = String(form.get("name") ?? "").trim().slice(0, 100) || (code.embedSrc ? "Amazon pick" : "");
+  if (!(url || code.embedSrc) || !name) return;
   await supabaseAdmin().from("amazon_items").upsert({
-    url,
+    url: url ?? code.embedSrc,
     name,
+    image_src: code.imageSrc,
+    embed_src: code.embedSrc,
     emoji: String(form.get("emoji") ?? "").trim().slice(0, 8) || null,
     tags: list(form, "tags"),
     occasions: form.getAll("occasions").map(String).filter((s) => (OCCASIONS as readonly string[]).includes(s)),

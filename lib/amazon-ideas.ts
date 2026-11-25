@@ -12,7 +12,7 @@ import { supabaseAdmin } from "./supabase/server";
  * kind of gift that opens Amazon's own search results. Once the API is on,
  * this can return real products instead.
  */
-export type AmazonIdea = { label: string; emoji: string; url: string; kind?: "item" | "search" };
+export type AmazonIdea = { label: string; emoji: string; url: string; kind?: "item" | "search"; image?: string | null; embed?: string | null };
 
 // Kinds of gift for each interest (lib/types.ts INTERESTS), style and occasion.
 const BY_INTEREST: Record<string, [string, string][]> = {
@@ -90,7 +90,7 @@ export function amazonIdeas(c: Criteria, pickTags: string[] = [], n = 10): Amazo
   return out.map(([label, emoji]) => ({ label, emoji, url: amazonLink({ query: `${label}${forWho}` }), kind: "search" as const }));
 }
 
-type AmazonItemRow = { url: string; name: string; emoji: string | null; tags: string[]; occasions: string[]; sex: string; age_min: number; age_max: number };
+type AmazonItemRow = { url: string; name: string; emoji: string | null; image_src: string | null; embed_src: string | null; tags: string[]; occasions: string[]; sex: string; age_min: number; age_max: number };
 
 /**
  * Up to `n` real Amazon products you added on /admin (from SiteStripe links)
@@ -99,7 +99,7 @@ type AmazonItemRow = { url: string; name: string; emoji: string | null; tags: st
  */
 export async function amazonItems(c: Criteria, n = 5): Promise<AmazonIdea[]> {
   const { data } = await supabaseAdmin().from("amazon_items")
-    .select("url, name, emoji, tags, occasions, sex, age_min, age_max").eq("active", true).limit(500);
+    .select("url, name, emoji, image_src, embed_src, tags, occasions, sex, age_min, age_max").eq("active", true).limit(500);
   const avoid = new Set(c.avoid ?? []);
   const likes = new Set([...(c.likes ?? []), ...(c.boost ?? [])]);
   return ((data ?? []) as AmazonItemRow[])
@@ -110,7 +110,7 @@ export async function amazonItems(c: Criteria, n = 5): Promise<AmazonIdea[]> {
     .map((x) => ({ x, score: x.tags.filter((t) => likes.has(t)).length * 3 + trendScore(x.name, c.age, c.sex) + (x.sex !== "any" ? 1 : 0) }))
     .sort((a, b) => b.score - a.score)
     .slice(0, n)
-    .map(({ x }) => ({ label: x.name, emoji: x.emoji || "🎁", url: x.url, kind: "item" as const }));
+    .map(({ x }) => ({ label: x.name, emoji: x.emoji || "🎁", url: x.url, kind: "item" as const, image: x.image_src, embed: x.embed_src }));
 }
 
 /** Five real Amazon products when you've added them, then searches to make ten. */

@@ -53,12 +53,13 @@ export default async function Admin() {
 
       <section className="stack">
         <h2>Amazon items ({amazon?.length ?? 0})</h2>
-        <p className="muted">On Amazon, use SiteStripe&rsquo;s Get Link, Short link, then paste it here. Up to five of these show under the picks, before the Amazon searches. Amazon doesn&rsquo;t allow copied prices or pictures, so shoppers see those on Amazon.</p>
+        <p className="muted">On Amazon, use SiteStripe&rsquo;s Get Link and paste the short link with a name, or paste its Image or Text+Image code to show Amazon&rsquo;s own picture. Up to five show under the picks, before the Amazon searches.</p>
         <form action={saveAmazonItem} className="card stack">
           <div className="row">
-            <label style={{ flex: 2 }}>Amazon link<input name="url" required placeholder="https://amzn.to/..." /></label>
-            <label style={{ flex: 3 }}>Name shoppers see<input name="name" required maxLength={100} placeholder="Wireless earbuds with charging case" /></label>
+            <label style={{ flex: 2 }}>Amazon link<input name="url" placeholder="https://amzn.to/..." /></label>
+            <label style={{ flex: 3 }}>Name shoppers see<input name="name" maxLength={100} placeholder="Wireless earbuds with charging case" /></label>
           </div>
+          <label>Or SiteStripe&rsquo;s Image or Text+Image code (shows Amazon&rsquo;s own picture)<textarea name="code" rows={3} placeholder="<a href=&quot;https://www.amazon.com/...&quot;><img src=&quot;//ws-na.amazon-adsystem.com/...&quot;></a>" /></label>
           <div className="row">
             <label>Emoji<input name="emoji" maxLength={8} placeholder="🎁" style={{ width: 70 }} /></label>
             <label>Ages<span className="row"><input name="age_min" type="number" defaultValue={0} style={{ width: 70 }} /> to <input name="age_max" type="number" defaultValue={120} style={{ width: 70 }} /></span></label>

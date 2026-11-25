@@ -176,8 +176,10 @@ export default function GiftFlow(props: {
           {amazon.some((x) => x.kind === "item") && (
             <ul className="amazon-list">
               {amazon.filter((x) => x.kind === "item").map((x) => (
-                <li key={x.url}>
-                  <a href={x.url} target="_blank" rel={AMAZON_REL}><span aria-hidden>{x.emoji}</span> {x.label}</a>
+                <li key={x.url} className={x.embed ? "amazon-embed" : x.image ? "amazon-pic" : undefined}>
+                  {x.embed
+                    ? <iframe src={x.embed} title={x.label} width={120} height={240} loading="lazy" sandbox="allow-popups allow-scripts allow-same-origin allow-popups-to-escape-sandbox" style={{ border: 0 }} />
+                    : <a href={x.url} target="_blank" rel={AMAZON_REL}>{x.image ? <img src={x.image} alt="" width={80} height={80} loading="lazy" /> : <span aria-hidden>{x.emoji}</span>} {x.label}</a>}
                 </li>
               ))}
             </ul>
