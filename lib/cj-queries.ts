@@ -15,6 +15,7 @@ export type GiftQuery = {
   emoji: string;
   usd: [number, number]; // item + shipping
   take?: number; // how many items to keep, 1 by default
+  not?: string[]; // skip items whose title has any of these words
 };
 
 export const GIFT_QUERIES: GiftQuery[] = [
@@ -28,7 +29,7 @@ export const GIFT_QUERIES: GiftQuery[] = [
   { q: "drawing tablet kids", tags: ["art"], styles: ["creative", "techy"], ages: [4, 12], emoji: "✏️", usd: [6, 40] },
   { q: "watercolor paint set", tags: ["art"], styles: ["creative"], ages: [6, 99], emoji: "🎨", usd: [8, 50] },
   { q: "plush toy", tags: ["pets"], styles: ["cozy", "fun"], ages: [2, 12], emoji: "🧸", usd: [6, 40], take: 2 },
-  { q: "remote control car", tags: ["tech", "sports"], styles: ["fun", "techy"], ages: [6, 14], emoji: "🏎️", usd: [15, 80] },
+  { q: "remote control car", not: ["diesel", "heater", "parts", "accessories", "battery"], tags: ["tech", "sports"], styles: ["fun", "techy"], ages: [6, 14], emoji: "🏎️", usd: [15, 80] },
   { q: "kids camera", tags: ["photography", "tech"], styles: ["techy", "fun"], ages: [5, 12], emoji: "📷", usd: [15, 60] },
   { q: "jigsaw puzzle", tags: ["board games"], styles: ["cozy"], ages: [8, 99], emoji: "🧩", usd: [8, 45] },
   { q: "slime kit", tags: ["crafts", "science"], styles: ["fun", "creative"], ages: [6, 12], emoji: "🫧", usd: [6, 35] },
@@ -47,7 +48,7 @@ export const GIFT_QUERIES: GiftQuery[] = [
   { q: "retro game console", tags: ["gaming"], styles: ["fun", "techy"], ages: [9, 50], emoji: "🕹️", usd: [20, 90] },
   { q: "instant camera", tags: ["photography", "travel"], styles: ["fun", "creative"], ages: [12, 50], emoji: "📸", usd: [30, 130] },
   { q: "ring light", tags: ["photography", "beauty"], styles: ["techy", "creative"], ages: [13, 45], emoji: "💡", usd: [12, 60] },
-  { q: "led strip lights", tags: ["home", "gaming"], styles: ["fun", "techy"], ages: [12, 40], emoji: "🌈", usd: [8, 45] },
+  { q: "led strip lights", not: ["drl", "daytime", "headlight", "motorcycle"], tags: ["home", "gaming"], styles: ["fun", "techy"], ages: [12, 40], emoji: "🌈", usd: [8, 45] },
   { q: "sunset lamp", tags: ["home", "photography"], styles: ["cozy", "fun"], ages: [12, 40], emoji: "🌅", usd: [8, 45] },
   { q: "galaxy projector", tags: ["home", "science"], styles: ["cozy", "fun"], ages: [6, 40], emoji: "🌌", usd: [12, 60] },
   // Home, cooking, drinks
@@ -57,13 +58,13 @@ export const GIFT_QUERIES: GiftQuery[] = [
   { q: "coffee grinder", tags: ["coffee", "cooking"], styles: ["foodie", "practical"], ages: [18, 99], emoji: "☕", usd: [15, 80] },
   { q: "pour over coffee", tags: ["coffee"], styles: ["foodie", "classy"], ages: [18, 99], emoji: "☕", usd: [12, 70] },
   { q: "milk frother", tags: ["coffee"], styles: ["foodie", "practical"], ages: [16, 99], emoji: "🥛", usd: [8, 40] },
-  { q: "tea set", tags: ["tea"], styles: ["classy", "cozy"], ages: [16, 99], emoji: "🫖", usd: [15, 90] },
+  { q: "tea set", not: ["jar", "storage"], tags: ["tea"], styles: ["classy", "cozy"], ages: [16, 99], emoji: "🫖", usd: [15, 90] },
   { q: "insulated tumbler", tags: ["coffee", "outdoors", "fitness"], styles: ["practical"], ages: [12, 99], emoji: "🥤", usd: [10, 45] },
   { q: "wine glasses", tags: ["cooking", "home"], styles: ["classy"], ages: [21, 99], emoji: "🍷", usd: [12, 60] },
   { q: "chef knife", tags: ["cooking"], styles: ["practical", "classy"], ages: [18, 99], emoji: "🔪", usd: [15, 90] },
   { q: "cutting board", tags: ["cooking", "home"], styles: ["practical"], ages: [18, 99], emoji: "🪵", usd: [12, 60] },
-  { q: "spice rack", tags: ["cooking", "home"], styles: ["practical"], ages: [18, 99], emoji: "🌶️", usd: [12, 60] },
-  { q: "herb garden", tags: ["gardening", "cooking"], styles: ["creative", "practical"], ages: [14, 99], emoji: "🌿", usd: [10, 60] },
+  { q: "spice rack", not: ["cabinet", "drawer"], tags: ["cooking", "home"], styles: ["practical"], ages: [18, 99], emoji: "🌶️", usd: [12, 60] },
+  { q: "herb garden", not: ["raised", "bed", "planter box"], tags: ["gardening", "cooking"], styles: ["creative", "practical"], ages: [14, 99], emoji: "🌿", usd: [10, 60] },
   { q: "plant pot", tags: ["gardening", "home"], styles: ["creative"], ages: [14, 99], emoji: "🪴", usd: [8, 45] },
   // Personal care and style
   { q: "makeup brush set", tags: ["beauty"], styles: ["personal care"], sex: "f", ages: [13, 99], emoji: "💄", usd: [8, 45] },
@@ -81,11 +82,11 @@ export const GIFT_QUERIES: GiftQuery[] = [
   { q: "cozy socks", tags: ["home"], styles: ["cozy"], ages: [8, 99], emoji: "🧦", usd: [6, 30] },
   // Active and outdoors
   { q: "yoga mat", tags: ["fitness", "wellness"], styles: ["practical"], ages: [14, 99], emoji: "🧘", usd: [12, 60] },
-  { q: "resistance bands", tags: ["fitness"], styles: ["practical"], ages: [14, 99], emoji: "💪", usd: [8, 45] },
+  { q: "resistance bands", not: ["stepper"], tags: ["fitness"], styles: ["practical"], ages: [14, 99], emoji: "💪", usd: [8, 45] },
   { q: "jump rope", tags: ["fitness"], styles: ["practical", "fun"], ages: [8, 99], emoji: "🤸", usd: [6, 35] },
   { q: "camping hammock", tags: ["outdoors", "travel"], styles: ["outdoor", "cozy"], ages: [12, 99], emoji: "🏕️", usd: [15, 70] },
   { q: "camping lantern", tags: ["outdoors"], styles: ["outdoor", "practical"], ages: [12, 99], emoji: "🏮", usd: [10, 50] },
-  { q: "headlamp", tags: ["outdoors", "hiking"], styles: ["outdoor", "practical"], ages: [12, 99], emoji: "🔦", usd: [8, 40] },
+  { q: "headlamp", not: ["motorcycle", "car", "bulb", "headlight"], tags: ["outdoors", "hiking"], styles: ["outdoor", "practical"], ages: [12, 99], emoji: "🔦", usd: [8, 40] },
   { q: "hiking backpack", tags: ["hiking", "travel"], styles: ["outdoor", "practical"], ages: [14, 99], emoji: "🎒", usd: [20, 90] },
   { q: "picnic blanket", tags: ["outdoors"], styles: ["outdoor", "cozy"], ages: [16, 99], emoji: "🧺", usd: [12, 55] },
   { q: "pickleball paddle", tags: ["sports", "fitness"], styles: ["outdoor", "fun"], ages: [12, 99], emoji: "🏓", usd: [20, 90] },
@@ -104,5 +105,5 @@ export const GIFT_QUERIES: GiftQuery[] = [
   // Occasions
   { q: "baby blanket", tags: ["home"], styles: ["cozy"], occasions: ["new baby"], ages: [18, 99], emoji: "👶", usd: [10, 60] },
   { q: "christmas ornament", tags: ["home"], styles: ["cozy", "creative"], occasions: ["holiday"], ages: [6, 99], emoji: "🎄", usd: [6, 40] },
-  { q: "photo frame", tags: ["photography", "home"], styles: ["classy", "creative"], occasions: ["anniversary", "wedding", "graduation", "housewarming"], ages: [16, 99], emoji: "🖼️", usd: [8, 50] },
+  { q: "photo frame", not: ["advertising", "player", "display", "digital signage"], tags: ["photography", "home"], styles: ["classy", "creative"], occasions: ["anniversary", "wedding", "graduation", "housewarming"], ages: [16, 99], emoji: "🖼️", usd: [8, 50] },
 ];
