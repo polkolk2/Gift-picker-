@@ -54,6 +54,15 @@ export async function GET(req: Request) {
   const batch = FEED_CATEGORIES.slice(from, from + count);
   const next = from + batch.length < FEED_CATEGORIES.length ? from + batch.length : null;
 
+  if (url.searchParams.get("debug") === "1") {
+    const id = batch[0]?.ids[0];
+    const out: Record<string, unknown> = { id };
+    for (const [k, o] of [["any", {}], ["us", { countryCode: "US" }], ["free", { freeShip: true }], ["usFree", { countryCode: "US", freeShip: true }]] as const) {
+      const r = await cjList({ categoryId: id, ...o, size: 3 });
+      out[k] = { total: r.total, sample: r.items.slice(0, 2).map((h) => ({ name: h.nameEn, price: h.sellPrice, free: h.addMarkStatus, days: h.deliveryCycle, cat: h.categoryId })) };
+    }
+    return NextResponse.json(out);
+  }
   const work = () => pull(db, batch, per);
   if (url.searchParams.get("bg") === "1") {
     after(async () => { console.log("cj-feed", from, JSON.stringify(await work())); });

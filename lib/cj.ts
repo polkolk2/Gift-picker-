@@ -48,31 +48,40 @@ async function token(): Promise<string> {
 // CJ allows about one call a second on a new account, so space them out.
 let last = 0;
 async function pace() {
-  const wait = last + 1100 - Date.now();
+  const wait = last + 1200 - Date.now();
   if (wait > 0) await new Promise((r) => setTimeout(r, wait));
   last = Date.now();
 }
 
 async function call<T>(path: string, body: unknown): Promise<T> {
-  await pace();
-  const res = await fetch(`${BASE}${path}`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json", "CJ-Access-Token": await token() },
-    body: JSON.stringify(body),
-  });
-  const j = (await res.json()) as CjReply<T>;
-  if (!j.result) throw new Error(`CJ ${path}: ${j.message ?? res.status}`);
-  return j.data;
+  const tok = await token();
+  for (let attempt = 0; ; attempt++) {
+    await pace();
+    const res = await fetch(`${BASE}${path}`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "CJ-Access-Token": tok },
+      body: JSON.stringify(body),
+    });
+    const j = (await res.json()) as CjReply<T>;
+    if (j.result) return j.data;
+    if (attempt < 3 && /too many requests|qps/i.test(j.message ?? "")) { await new Promise((r) => setTimeout(r, 1500)); continue; }
+    throw new Error(`CJ ${path}: ${j.message ?? res.status}`);
+  }
 }
 
 async function get<T>(path: string, params: Record<string, string | number | undefined>): Promise<T> {
   const q = new URLSearchParams();
   for (const [k, v] of Object.entries(params)) if (v !== undefined && v !== "") q.set(k, String(v));
-  await pace();
-  const res = await fetch(`${BASE}${path}?${q}`, { headers: { "CJ-Access-Token": await token() } });
-  const j = (await res.json()) as CjReply<T>;
-  if (!j.result) throw new Error(`CJ ${path}: ${j.message ?? res.status}`);
-  return j.data;
+  const tok = await token();
+  for (let attempt = 0; ; attempt++) {
+    await pace();
+    const res = await fetch(`${BASE}${path}?${q}`, { headers: { "CJ-Access-Token": tok } });
+    const j = (await res.json()) as CjReply<T>;
+    if (j.result) return j.data;
+    // CJ's one-call-a-second limit: wait and try again.
+    if (attempt < 3 && /too many requests|qps/i.test(j.message ?? "")) { await new Promise((r) => setTimeout(r, 1500)); continue; }
+    throw new Error(`CJ ${path}: ${j.message ?? res.status}`);
+  }
 }
 
 /** CJ's cheapest shipping method for one item to that country, with its price in USD. */
