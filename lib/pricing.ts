@@ -1,15 +1,16 @@
 /**
  * Pricing: no fees. A product's price_cents is its source price (what the
  * supplier charges you to drop-ship it), and the shopper pays that plus your
- * markup, shown as one price. MARKUP_PERCENT sets it (10 by default).
+ * markup, rounded up to the next dollar and shown as one price. MARKUP_PERCENT
+ * sets the markup (10 by default).
  */
 export const MARKUP_PERCENT = Number(process.env.MARKUP_PERCENT ?? 10);
 
-/** Your markup on a gift, in cents. */
-export const markupFor = (sourceCents: number) => Math.round((sourceCents * MARKUP_PERCENT) / 100);
+/** What the shopper pays for a gift before tax, shipping included: cost plus markup, rounded up to the dollar. */
+export const shopperPrice = (sourceCents: number) => Math.ceil((sourceCents * (100 + MARKUP_PERCENT)) / 10000) * 100;
 
-/** What the shopper pays for a gift before tax, shipping included. */
-export const shopperPrice = (sourceCents: number) => sourceCents + markupFor(sourceCents);
+/** Your markup on a gift, in cents (the 10% plus the round-up). */
+export const markupFor = (sourceCents: number) => shopperPrice(sourceCents) - sourceCents;
 
 /**
  * The family perk: someone who got a gift from a business, made their own
