@@ -73,6 +73,14 @@ export type Criteria = {
 };
 
 /** Scores the catalog and returns the best three not shown yet, spread across kinds of gift. */
+// Words that make a product feel like a real present, and ones that make it a chore.
+const GIFTY = ["projector", "speaker", "earbuds", "headphones", "smartwatch", "smart watch", "drone", "camera", "building", "lego", "plush", "galaxy", "sunset", "lamp", "light", "karaoke", "microphone", "controller", "console", "keyboard", "necklace", "bracelet", "earrings", "ring", "jewelry", "watch", "wallet", "blanket", "mug", "tumbler", "kit", "set", "puzzle", "game", "rc ", "remote control", "massager", "diffuser", "candle", "bow tie", "palette", "grill", "golf", "telescope", "microscope"];
+const CHORE = ["trimmer", "clipper", "shaver", "straightener", "curling", "gloves", "flashlight", "cushion", "pad", "tackle", "bag", "cover", "holder", "stand", "charger", "power bank", "humidifier", "towel", "sleeping bag", "brush", "eraser", "mirror", "pole", "taillight", "bike light"];
+function giftiness(name: string) {
+  const n = ` ${name.toLowerCase()} `;
+  return (GIFTY.some((w) => n.includes(w)) ? 2 : 0) - (CHORE.some((w) => n.includes(w)) ? 2 : 0);
+}
+
 export function rank(products: Product[], c: Criteria): Pick[] {
   const likes = new Set(c.likes ?? []), dis = new Set(c.dislikes ?? []), plus = new Set(c.boost ?? []);
   const styles = new Set(c.styles ?? []);
@@ -96,6 +104,11 @@ export function rank(products: Product[], c: Criteria): Pick[] {
   const sexOk = (p: Product) => p.sex === "any" || !c.sex || c.sex === "any" || p.sex === c.sex;
   const suits = pool.filter((p) => ageOk(p) && sexOk(p));
   if (suits.length >= 3) pool = suits;
+  // "Anyone": keep to gifts that suit anyone, not a women's handbag or a beard trimmer.
+  const openSex = !c.sex || c.sex === "any";
+  if (openSex) { const uni = pool.filter((p) => p.sex === "any"); if (uni.length >= 6) pool = uni; }
+  // No age given: assume a grown-up, so leave out toys made only for kids.
+  if (c.age == null) { const grown = pool.filter((p) => p.ages[1] >= 25 && p.ages[0] <= 25); if (grown.length >= 6) pool = grown; }
 
   const scored = pool.map((p) => {
     let s = 0;
@@ -108,6 +121,8 @@ export function rank(products: Product[], c: Criteria): Pick[] {
     // What people this age and sex commonly get, and how widely it sells.
     s += 3 * trendScore(p.name, c.age, c.sex);
     s += Math.min(2, (p.popularity ?? 0) / 50);
+    // Would it feel like a gift? Fun, wow or keepsake items beat chores.
+    s += giftiness(p.name);
     return { p, s };
   }).sort((a, b) => b.s - a.s || (b.p.popularity ?? 0) - (a.p.popularity ?? 0) || b.p.priceCents - a.p.priceCents);
 
@@ -119,12 +134,14 @@ export function rank(products: Product[], c: Criteria): Pick[] {
     if (c.occasion && p.occasions.includes(c.occasion)) return `Made for a ${c.occasion}.`;
     return `In budget and a good fit for ${who}.`;
   };
+  // Three different kinds of gift, not three speakers.
+  const kind = (p: Product) => `${p.emoji ?? ""}|${p.tags[0] ?? ""}`;
   const out: Pick[] = [];
-  const usedTag = new Set<string>();
+  const usedKind = new Set<string>(), usedEmoji = new Set<string>();
   for (const { p } of scored) {
     if (out.length === 3) break;
-    if (usedTag.has(p.tags[0]) && scored.length > 6) continue;
-    usedTag.add(p.tags[0]);
+    if (scored.length > 6 && (usedKind.has(kind(p)) || (p.emoji && usedEmoji.has(p.emoji)))) continue;
+    usedKind.add(kind(p)); if (p.emoji) usedEmoji.add(p.emoji);
     out.push({ ...p, why: why(p) });
   }
   for (const { p } of scored) {
