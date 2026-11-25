@@ -49,7 +49,8 @@ export async function GET(req: Request) {
 
   const db = supabaseAdmin();
   if (url.searchParams.get("reset") === "1") {
-    await db.from("products").update({ active: false }).not("sku", "like", "cj-%");
+    const { error } = await db.from("products").update({ active: false }).not("sku", "like", "cj-%");
+    if (error) return NextResponse.json({ error: `reset: ${error.message}` }, { status: 500 });
   }
 
   const from = Math.max(0, Number(url.searchParams.get("from") ?? 0) || 0);
@@ -82,7 +83,7 @@ export async function GET(req: Request) {
           if (totalCents < g.usd[0] * 100 || totalCents > g.usd[1] * 100) continue;
 
           const name = cleanName(detail.productNameEn || hit.nameEn || g.q);
-          await db.from("products").upsert({
+          const { error: saveError } = await db.from("products").upsert({
             sku,
             name,
             description: null,
@@ -99,6 +100,7 @@ export async function GET(req: Request) {
             supplier_ref: `cj:${variant.vid}${warehouse === "US" ? "" : `@${warehouse}`}`,
             active: true,
           });
+          if (saveError) { results.push({ q: g.q, sku, saveError: saveError.message }); continue; }
           kept.push(sku);
           results.push({ q: g.q, sku, name, warehouse, cost: totalCents / 100, days: ship.days });
         }
