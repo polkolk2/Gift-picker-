@@ -2,7 +2,7 @@
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { requireUser, supabaseAdmin } from "@/lib/supabase/server";
-import { myOrg } from "@/lib/org";
+import { guessKind, myOrg, readGiftStyle, styleFromKind } from "@/lib/org";
 import type { EmployeeRow } from "@/lib/spreadsheet";
 
 /** Business sign-up: one field. The signed-in person becomes the first admin. */
@@ -13,9 +13,22 @@ export async function createOrg(form: FormData) {
   if (!name) return;
   if (await myOrg(supabase, user)) redirect("/business");
   const db = supabaseAdmin();
-  const { data: org } = await db.from("orgs").insert({ name, created_by: user.id }).select("id").single();
+  // Start from what the name says about the company (a burger chain and a jeweler get different gifts).
+  const { data: org } = await db.from("orgs").insert({ name, created_by: user.id, ...styleFromKind(guessKind(name)) }).select("id").single();
   if (org) await db.from("org_members").insert({ org_id: org.id, user_id: user.id, role: "admin" });
   redirect("/business/import");
+}
+
+/** Saves the gift style a business picked on its settings form. Admins only. */
+export async function saveGiftStyle(form: FormData) {
+  const { supabase, user } = await requireUser();
+  if (!user) redirect("/login");
+  const org = await myOrg(supabase, user);
+  if (!org) redirect("/business");
+  const { data: me } = await supabase.from("org_members").select("role").eq("org_id", org.id).eq("user_id", user.id).maybeSingle();
+  if (me?.role !== "admin") return;
+  await supabaseAdmin().from("orgs").update(readGiftStyle(form)).eq("id", org.id);
+  revalidatePath("/business");
 }
 
 /** Adds employees from a spreadsheet. People already on the list (same email, or same name and birthday) are skipped. */

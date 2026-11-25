@@ -3,6 +3,7 @@ import { OCCASIONS, STYLES, type Recipient } from "./types";
 import { whoFromRecipient, type Who } from "./ai";
 import type { Criteria } from "./catalog";
 import { ageOn } from "./dates";
+import { orgById } from "./org";
 
 const pickList = (v: unknown, allowed: readonly string[], max: number) =>
   (Array.isArray(v) ? v.map(String) : []).filter((x) => allowed.includes(x)).slice(0, max);
@@ -24,12 +25,21 @@ export async function readFinder(body: Record<string, unknown>, supabase: Supaba
   const exclude = (Array.isArray(body.exclude) ? body.exclude.map(String) : []).slice(0, 60);
 
   let who: Who;
+  let avoid: string[] = [];
   if (body.recipientId) {
     if (!user) return null;
     const { data: r } = await supabase.from("recipients").select("*").eq("id", String(body.recipientId)).single<Recipient>();
     if (!r) return null;
-    const budget = body.budget ? { min: num(b.min, 0, 5000, r.budget_min), max: num(b.max, 1, 5000, r.budget_max) } : undefined;
+    // An employee gets their company's gift style: its budget, its kind of gifts, and what it leaves out.
+    const org = r.org_id ? await orgById(supabase, r.org_id) : null;
+    if (org) {
+      for (const s of org.gift_styles ?? []) if (!styles.includes(s) && styles.length < 4) styles.push(s);
+      avoid = org.gift_avoid ?? [];
+    }
+    const base = org?.gift_min && org?.gift_max ? { min: org.gift_min, max: org.gift_max } : { min: r.budget_min, max: r.budget_max };
+    const budget = body.budget ? { min: num(b.min, 0, 5000, base.min), max: num(b.max, 1, 5000, base.max) } : org?.gift_max ? base : undefined;
     who = whoFromRecipient(r, styles, budget);
+    if (avoid.length) who = { ...who, dislikes: [...new Set([...who.dislikes, ...avoid])] };
   } else {
     const sex = body.sex === "f" || body.sex === "m" ? body.sex : "any";
     who = {
@@ -41,7 +51,7 @@ export async function readFinder(body: Record<string, unknown>, supabase: Supaba
   }
   const criteria: Criteria = {
     name: who.name === "them" ? undefined : who.name, occasion, styles, likes: who.likes, dislikes: who.dislikes,
-    sex: who.sex, age: who.age, minCents: who.budgetMin * 100, maxCents: who.budgetMax * 100, exclude,
+    sex: who.sex, age: who.age, minCents: who.budgetMin * 100, maxCents: who.budgetMax * 100, exclude, avoid,
   };
   return { who, criteria, occasion, exclude };
 }

@@ -24,7 +24,7 @@ export default async function Person({ params }: { params: Promise<{ id: string 
       <h1>{person.name}</h1>
       {soon[0] && <p className="when">{soon[0].title} in {soon[0].daysAway} days</p>}
 
-      <GiftFlow recipientId={person.id} name={person.name} email={person.email} defaultOccasion={soon[0]?.occasion} signedIn perkPercent={perk?.has && perk.ready ? PERK_PERCENT : 0} />
+      <GiftFlow recipientId={person.id} name={person.name} email={person.email} defaultOccasion={soon[0]?.occasion} signedIn perkPercent={perk?.has && perk.ready ? PERK_PERCENT : 0} budgetLabel={person.org_id ? "Company budget" : undefined} />
 
       <section className="stack">
         <h2>Dates to remember</h2>

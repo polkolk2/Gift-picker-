@@ -21,6 +21,7 @@ const cap = (s: string) => s[0].toUpperCase() + s.slice(1);
 export default function GiftFlow(props: {
   recipientId?: string; name?: string; email?: string | null; defaultOccasion?: string; signedIn?: boolean;
   perkPercent?: number; // set when the family discount applies to this giver's next gift
+  budgetLabel?: string; // "Company budget" for a business's employees
 }) {
   const quick = !props.recipientId;
   const [name, setName] = useState(props.name ?? "");
@@ -122,7 +123,7 @@ export default function GiftFlow(props: {
       <div className="stack tight">
         <span className="step">2 · Price, shipping included</span>
         <div className="chips">
-          {!quick && <button type="button" className={`chip ${band === -1 ? "on" : ""}`} onClick={() => { setBand(-1); restart(); }}>Their usual budget</button>}
+          {!quick && <button type="button" className={`chip ${band === -1 ? "on" : ""}`} onClick={() => { setBand(-1); restart(); }}>{props.budgetLabel ?? "Their usual budget"}</button>}
           {PRICE_BANDS.map((b, i) => (
             <button key={b.label} type="button" className={`chip ${band === i ? "on" : ""}`} onClick={() => { setBand(i); restart(); }}>{b.label}</button>
           ))}

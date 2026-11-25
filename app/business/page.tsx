@@ -1,10 +1,10 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { requireUser } from "@/lib/supabase/server";
-import { myOrg } from "@/lib/org";
+import { GIFT_KINDS, kindById, myOrg } from "@/lib/org";
 import { upcoming } from "@/lib/dates";
-import type { Recipient } from "@/lib/types";
-import { createOrg } from "./actions";
+import { INTERESTS, STYLES, type Recipient } from "@/lib/types";
+import { createOrg, saveGiftStyle } from "./actions";
 
 export default async function Business() {
   const { supabase, user } = await requireUser();
@@ -33,6 +33,42 @@ export default async function Business() {
         <h1>{org.name}</h1>
         <Link className="btn" href="/business/import">Import employees</Link>
       </div>
+
+      <details className="card stack">
+        <summary>
+          <strong>Gift style:</strong> {kindById(org.gift_kind)?.label ?? "Not set"}
+          {org.gift_min && org.gift_max ? `, $${org.gift_min} to $${org.gift_max}` : ""}
+        </summary>
+        <p className="muted">We set this from your company&rsquo;s name. It decides the price range and kind of gifts your team sees.</p>
+        <form action={saveGiftStyle} className="stack">
+          <label>Type of company
+            <select name="gift_kind" defaultValue={org.gift_kind ?? "custom"}>
+              {GIFT_KINDS.map((k) => <option key={k.id} value={k.id}>{k.label}</option>)}
+            </select>
+          </label>
+          <div className="row">
+            <label>From $<input name="gift_min" type="number" min={1} max={5000} defaultValue={org.gift_min ?? 25} /></label>
+            <label>Up to $<input name="gift_max" type="number" min={1} max={5000} defaultValue={org.gift_max ?? 75} /></label>
+          </div>
+          <fieldset className="stack">
+            <legend>Kinds of gift to favor (up to 4)</legend>
+            <div className="row">
+              {STYLES.map((s) => (
+                <label key={s}><input type="checkbox" name="gift_styles" value={s} defaultChecked={org.gift_styles?.includes(s)} /> {s}</label>
+              ))}
+            </div>
+          </fieldset>
+          <fieldset className="stack">
+            <legend>Leave out</legend>
+            <div className="row">
+              {INTERESTS.map((s) => (
+                <label key={s}><input type="checkbox" name="gift_avoid" value={s} defaultChecked={org.gift_avoid?.includes(s)} /> {s}</label>
+              ))}
+            </div>
+          </fieldset>
+          <button className="btn" type="submit">Save gift style</button>
+        </form>
+      </details>
 
       <section className="stack">
         <h2>Next 60 days</h2>

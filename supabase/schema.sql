@@ -163,6 +163,12 @@ create index if not exists orders_claim     on orders(claim_status, claim_expire
 -- shoppers pay that plus MARKUP_PERCENT. cost_cents is no longer used.
 alter table products add column if not exists emoji text;
 alter table orders add column if not exists recipient_phone text;  -- "text" delivery: the giver texts the link
+-- A business's gift style, guessed from its name at sign-up and editable on /business.
+alter table orgs add column if not exists gift_kind text;
+alter table orgs add column if not exists gift_min int;
+alter table orgs add column if not exists gift_max int;
+alter table orgs add column if not exists gift_styles text[] not null default '{}';
+alter table orgs add column if not exists gift_avoid text[] not null default '{}';
 alter table orders add column if not exists perk_applied boolean not null default false;
 alter table orders drop constraint if exists orders_delivery_check;
 alter table orders add constraint orders_delivery_check check (delivery in ('ship','link','text'));

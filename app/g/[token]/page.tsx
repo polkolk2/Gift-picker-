@@ -21,9 +21,11 @@ export default async function Gift({ params }: { params: Promise<{ token: string
 
   if (!o) return <main className="stack narrow"><h1>Gift not found</h1><p className="muted">Check the link, or ask the person who sent it.</p></main>;
   let from = o.sender_name || "Someone";
+  let avoid: string[] = [];
   if (o.org_id) {
-    const { data: org } = await db.from("orgs").select("name").eq("id", o.org_id).maybeSingle();
+    const { data: org } = await db.from("orgs").select("name,gift_avoid").eq("id", o.org_id).maybeSingle();
     if (org?.name) from = org.name;
+    avoid = org?.gift_avoid ?? [];
   }
   const expired = o.claim_status === "expired" || (o.claim_status === "unclaimed" && new Date(o.claim_expires_at) < new Date());
 
@@ -47,7 +49,7 @@ export default async function Gift({ params }: { params: Promise<{ token: string
       </main>
     );
 
-  const swaps = (await swapOptions(o.gift_cents, o.product.sku))
+  const swaps = (await swapOptions(o.gift_cents, o.product.sku, avoid))
     .slice(0, 24)
     .map((p) => ({ sku: p.sku, name: p.name, emoji: p.emoji ?? null, description: p.description ?? null }));
   return (

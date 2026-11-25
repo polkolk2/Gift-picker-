@@ -47,9 +47,12 @@ export const dbSource: ProductSource = {
 export const productSource: ProductSource = process.env.CATALOG === "sample" ? sampleSource : dbSource;
 
 /** Every active product worth no more than a gift's value, for the recipient's swap list. */
-export async function swapOptions(maxCents: number, except: string) {
+export async function swapOptions(maxCents: number, except: string, avoid: string[] = []) {
   const all = await productSource.list();
-  return all.filter((p) => p.priceCents <= maxCents && p.sku !== except).sort((a, b) => b.priceCents - a.priceCents);
+  const fits = all.filter((p) => p.priceCents <= maxCents && p.sku !== except);
+  const skip = new Set(avoid);
+  const kept = fits.filter((p) => !p.tags.some((t) => skip.has(t)));
+  return (kept.length >= 3 ? kept : fits).sort((a, b) => b.priceCents - a.priceCents);
 }
 
 /** What the finder knows about the gift. Everything is optional except the price range. */
@@ -65,6 +68,7 @@ export type Criteria = {
   maxCents: number;
   exclude?: string[];
   boost?: string[];         // interests from round 3 answers
+  avoid?: string[];         // interests a business leaves out for its team
 };
 
 /** Scores the catalog and returns the best three not shown yet, spread across kinds of gift. */
@@ -72,6 +76,11 @@ export function rank(products: Product[], c: Criteria): Pick[] {
   const likes = new Set(c.likes ?? []), dis = new Set(c.dislikes ?? []), plus = new Set(c.boost ?? []);
   const styles = new Set(c.styles ?? []);
   const exclude = new Set(c.exclude ?? []);
+  const avoid = new Set(c.avoid ?? []);
+  if (avoid.size) {
+    const kept = products.filter((p) => !p.tags.some((t) => avoid.has(t)));
+    if (kept.length >= 3) products = kept;
+  }
   const who = c.name ?? "them";
   // Budgets are what the giver pays, so compare the shopper's price.
   const pay = (p: Product) => shopperPrice(p.priceCents);
