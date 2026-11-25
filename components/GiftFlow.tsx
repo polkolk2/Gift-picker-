@@ -1,5 +1,5 @@
 "use client";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { OCCASIONS, PRICE_BANDS, STYLES, type PublicPick } from "@/lib/types";
 import { AMAZON_REL, ASSOCIATE_STATEMENT } from "@/lib/amazon";
 import type { AmazonIdea } from "@/lib/amazon-ideas";
@@ -12,6 +12,13 @@ const OCC_ICON: Record<string, string> = {
   "work anniversary": "🏆", "thank you": "🙏", "get well": "🌷", housewarming: "🏡",
 };
 const cap = (s: string) => s[0].toUpperCase() + s.slice(1);
+// Age choices: each year through 21, then a range (sent as its middle age).
+const AGES: { label: string; value: string }[] = [
+  { label: "Any age", value: "" }, { label: "Under 1", value: "0" },
+  ...Array.from({ length: 21 }, (_, i) => ({ label: String(i + 1), value: String(i + 1) })),
+  { label: "22 to 29", value: "25" }, { label: "30s", value: "35" }, { label: "40s", value: "45" },
+  { label: "50s", value: "55" }, { label: "60s", value: "65" }, { label: "70+", value: "75" },
+];
 
 /**
  * The gift finder. Pick the occasion, a price and up to three styles, then:
@@ -63,7 +70,25 @@ export default function GiftFlow(props: {
   function toggleStyle(s: string) {
     setStyles((cur) => (cur.includes(s) ? cur.filter((x) => x !== s) : cur.length < 3 ? [...cur, s] : cur));
   }
-  function restart() { setRound(0); setPicks([]); setAmazon([]); setShown([]); setQuestions([]); setAnswers({}); }
+  // Once ideas are showing, any change to age, "for", occasion, price or kind
+  // of gift fetches fresh ideas right away (the newest request wins).
+  const searched = useRef(false);
+  const reqId = useRef(0);
+  async function refresh() {
+    const id = ++reqId.current;
+    setBusy("Updating ideas...");
+    const { picks: p, amazon: a } = await post("/api/picks", finderBody({ exclude: [] }));
+    if (id !== reqId.current) return;
+    setPicks(p ?? []); setAmazon(a ?? []); setShown((p ?? []).map((x: PublicPick) => x.sku));
+    setQuestions([]); setAnswers({}); setRound(1); setBusy("");
+  }
+  const filters = [age, sex, occasion, band, styles.join(",")].join("|");
+  useEffect(() => {
+    if (!searched.current) return;
+    const t = setTimeout(refresh, 200);
+    return () => clearTimeout(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [filters]);
 
   async function nextRound() {
     if (round >= 2) {
@@ -73,7 +98,10 @@ export default function GiftFlow(props: {
       return;
     }
     setBusy("Finding ideas...");
+    searched.current = true;
+    const id = ++reqId.current;
     const { picks: p, amazon: a } = await post("/api/picks", finderBody());
+    if (id !== reqId.current) return;
     setPicks(p ?? []); setAmazon(a ?? []); setShown([...shown, ...(p ?? []).map((x: PublicPick) => x.sku)]); setRound(round + 1); setBusy("");
   }
   async function finish() {
@@ -107,7 +135,7 @@ export default function GiftFlow(props: {
       {quick && (
         <div className="row">
           <label style={{ flex: 2 }}>Who&rsquo;s it for?<input value={name} placeholder="Their name" onChange={(e) => setName(e.target.value)} /></label>
-          <label style={{ flex: 1 }}>Age<input inputMode="numeric" value={age} onChange={(e) => setAge(e.target.value.replace(/\D/g, ""))} /></label>
+          <label style={{ flex: 1 }}>Age<select value={age} onChange={(e) => setAge(e.target.value)}>{AGES.map((a) => <option key={a.label} value={a.value}>{a.label}</option>)}</select></label>
           <label style={{ flex: 1 }}>For<select value={sex} onChange={(e) => setSex(e.target.value)}><option value="any">Anyone</option><option value="f">Her</option><option value="m">Him</option></select></label>
         </div>
       )}
@@ -116,7 +144,7 @@ export default function GiftFlow(props: {
         <span className="step">1 · Occasion</span>
         <div className="chips">
           {OCCASIONS.map((o) => (
-            <button key={o} type="button" className={`chip ${occasion === o ? "on" : ""}`} aria-pressed={occasion === o} onClick={() => { setOccasion(o); restart(); }}>
+            <button key={o} type="button" className={`chip ${occasion === o ? "on" : ""}`} aria-pressed={occasion === o} onClick={() => { setOccasion(o); }}>
               <span aria-hidden>{OCC_ICON[o] ?? "🎁"}</span> {cap(o)}
             </button>
           ))}
@@ -126,9 +154,9 @@ export default function GiftFlow(props: {
       <div className="stack tight">
         <span className="step">2 · Price, shipping included</span>
         <div className="chips">
-          {!quick && <button type="button" className={`chip ${band === -1 ? "on" : ""}`} onClick={() => { setBand(-1); restart(); }}>{props.budgetLabel ?? "Their usual budget"}</button>}
+          {!quick && <button type="button" className={`chip ${band === -1 ? "on" : ""}`} onClick={() => { setBand(-1); }}>{props.budgetLabel ?? "Their usual budget"}</button>}
           {PRICE_BANDS.map((b, i) => (
-            <button key={b.label} type="button" className={`chip ${band === i ? "on" : ""}`} onClick={() => { setBand(i); restart(); }}>{b.label}</button>
+            <button key={b.label} type="button" className={`chip ${band === i ? "on" : ""}`} onClick={() => { setBand(i); }}>{b.label}</button>
           ))}
         </div>
       </div>
@@ -137,7 +165,7 @@ export default function GiftFlow(props: {
         <span className="step">3 · What kind of gift? Up to 3, or none</span>
         <div className="chips">
           {STYLES.map((s) => (
-            <button key={s} type="button" className={`chip ${styles.includes(s) ? "on" : ""}`} aria-pressed={styles.includes(s)} onClick={() => { toggleStyle(s); restart(); }}>{cap(s)}</button>
+            <button key={s} type="button" className={`chip ${styles.includes(s) ? "on" : ""}`} aria-pressed={styles.includes(s)} onClick={() => { toggleStyle(s); }}>{cap(s)}</button>
           ))}
         </div>
       </div>
