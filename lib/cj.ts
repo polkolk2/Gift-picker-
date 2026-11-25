@@ -103,6 +103,40 @@ export async function cjProduct(pid: string, countryCode?: string): Promise<CjPr
   return get<CjProduct>("/product/query", { pid, countryCode });
 }
 
+export type CjListItem = CjHit & {
+  addMarkStatus?: number; // 1 = CJ ships it free
+  deliveryCycle?: string; // days, like "3-5"
+  categoryId?: string;
+  warehouseInventoryNum?: number;
+};
+
+/** One page (up to 100) of a CJ category, optionally only free-shipping items stocked in a country. */
+export async function cjList(o: { categoryId?: string; lv2?: string; countryCode?: string; freeShip?: boolean; page?: number; size?: number; maxUsd?: number }) {
+  const data = await get<{ totalRecords?: number; content?: { productList?: CjListItem[] }[] }>("/product/listV2", {
+    categoryId: o.categoryId,
+    lv2categoryList: o.lv2,
+    countryCode: o.countryCode,
+    addMarkStatus: o.freeShip ? 1 : undefined,
+    endSellPrice: o.maxUsd,
+    page: o.page ?? 1,
+    size: o.size ?? 100,
+    orderBy: 1, // most listed by other stores first
+  });
+  return { total: data?.totalRecords ?? 0, items: (data?.content ?? []).flatMap((c) => c.productList ?? []) };
+}
+
+export type CjCategory = { first: string; second: string; secondId?: string; id: string; name: string };
+
+/** CJ's category tree, flattened to third-level categories. */
+export async function cjCategories(): Promise<CjCategory[]> {
+  type L3 = { categoryId: string; categoryName: string };
+  type L2 = { categorySecondName: string; categorySecondId?: string; categorySecondList?: L3[] };
+  type L1 = { categoryFirstName: string; categoryFirstList?: L2[] };
+  const data = await get<L1[]>("/product/getCategory", {});
+  return (data ?? []).flatMap((a) => (a.categoryFirstList ?? []).flatMap((b) =>
+    (b.categorySecondList ?? []).map((c) => ({ first: a.categoryFirstName, second: b.categorySecondName, secondId: b.categorySecondId, id: c.categoryId, name: c.categoryName }))));
+}
+
 const countryName = (code: string) => {
   try { return new Intl.DisplayNames(["en"], { type: "region" }).of(code) ?? code; } catch { return code; }
 };
