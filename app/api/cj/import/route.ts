@@ -53,12 +53,15 @@ function overlap(search: string, title: string) {
  * The best CJ hit for a gift: its title has to cover most of the search words
  * and its price has to be near what the gift should cost.
  */
+const seen: Record<string, string[]> = {};
 async function bestHit(q: string, estimateCents: number) {
   const tries: [string, string | undefined][] = [];
   const short = q.split(" ").slice(-2).join(" ");
   for (const query of [...new Set([q, short])]) for (const c of ["US", undefined]) tries.push([query, c]);
   for (const [query, country] of tries) {
     const hits = await cjSearch(query, country, 20);
+    if (!seen[q]) seen[q] = [];
+    seen[q].push(`${query}@${country ?? "any"}: ` + hits.slice(0, 4).map((h) => `${h.nameEn} $${h.sellPrice} (${overlap(query, h.nameEn ?? "").toFixed(2)})`).join(" | "));
     const ok = hits
       .map((h) => ({ h, score: overlap(query, h.nameEn ?? ""), price: (parseFloat(String(h.sellPrice ?? "0")) || 0) * 100 }))
       .filter((x) => x.h.id && x.score >= 0.6 && (!x.price || (x.price >= estimateCents * 0.1 && x.price <= estimateCents * 2)))
@@ -131,5 +134,6 @@ export async function GET(req: Request) {
     }
   }
 
+  if (url.searchParams.get("debug")) return NextResponse.json({ results, seen });
   return NextResponse.json({ from, count: rows.length, next: from + rows.length < CURATED.length ? from + rows.length : null, results });
 }
