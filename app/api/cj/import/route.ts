@@ -13,6 +13,7 @@ import { cheapestShipping, cjEnabled, cjProduct, cjSearch, type CjHit } from "@/
  *
  * Call: /api/cj/import?token=IMPORT_TOKEN&from=0&count=10
  *   &reset=1 hides every product that didn't come from CJ (the old starter list).
+ *   &take=N keeps up to N items of each kind (default: the query's own take).
  *   &bg=1 answers at once and does the work in the background (results go to the logs).
  * CJ allows about one call a second, so it runs in batches.
  */
@@ -68,7 +69,8 @@ export async function GET(req: Request) {
   const from = Math.max(0, Number(url.searchParams.get("from") ?? 0) || 0);
   const count = Math.min(20, Math.max(1, Number(url.searchParams.get("count") ?? 10) || 10));
   const batch = GIFT_QUERIES.slice(from, from + count);
-  const work = () => runBatch(db, batch);
+  const take = Math.min(8, Number(url.searchParams.get("take") ?? 0) || 0) || undefined;
+  const work = () => runBatch(db, batch, take);
   if (url.searchParams.get("bg") === "1") {
     after(async () => { console.log("cj-import", from, JSON.stringify(await work())); });
     return NextResponse.json({ from, count: batch.length, started: true });
@@ -80,10 +82,10 @@ export async function GET(req: Request) {
 }
 
 type Db = ReturnType<typeof supabaseAdmin>;
-async function runBatch(db: Db, batch: GiftQuery[]) {
+async function runBatch(db: Db, batch: GiftQuery[], take?: number) {
   const results: unknown[] = [];
   for (const g of batch) {
-    const want = g.take ?? 1;
+    const want = take ?? g.take ?? 1;
     const kept: string[] = [];
     try {
       for (const country of ["US", undefined] as const) {
@@ -92,7 +94,7 @@ async function runBatch(db: Db, batch: GiftQuery[]) {
           .filter((h) => h.id && fits(g.q, h.nameEn ?? "") && !avoid(g, h.nameEn ?? "") && listPrice(h) > 0 && listPrice(h) <= g.usd[1]);
         let tried = 0;
         for (const hit of hits) {
-          if (kept.length >= want || tried >= 4) break;
+          if (kept.length >= want || tried >= want + 3) break;
           tried++;
           const sku = `cj-${hit.id}`.toLowerCase().slice(0, 60);
           const detail = await cjProduct(hit.id, country);
