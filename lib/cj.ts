@@ -31,6 +31,7 @@ async function token(): Promise<string> {
     return row.token;
   }
 
+  await pace();
   const res = await fetch(`${BASE}/authentication/getAccessToken`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -44,7 +45,16 @@ async function token(): Promise<string> {
   return j.data.accessToken;
 }
 
+// CJ allows about one call a second on a new account, so space them out.
+let last = 0;
+async function pace() {
+  const wait = last + 1100 - Date.now();
+  if (wait > 0) await new Promise((r) => setTimeout(r, wait));
+  last = Date.now();
+}
+
 async function call<T>(path: string, body: unknown): Promise<T> {
+  await pace();
   const res = await fetch(`${BASE}${path}`, {
     method: "POST",
     headers: { "Content-Type": "application/json", "CJ-Access-Token": await token() },
@@ -55,17 +65,42 @@ async function call<T>(path: string, body: unknown): Promise<T> {
   return j.data;
 }
 
-/** CJ's cheapest shipping method for one item to that country. */
-async function cheapestShipping(vid: string, from: string, to: string, zip?: string) {
-  const opts = await call<{ logisticName: string; logisticPrice: number }[]>("/logistic/freightCalculate", {
+async function get<T>(path: string, params: Record<string, string | number | undefined>): Promise<T> {
+  const q = new URLSearchParams();
+  for (const [k, v] of Object.entries(params)) if (v !== undefined && v !== "") q.set(k, String(v));
+  await pace();
+  const res = await fetch(`${BASE}${path}?${q}`, { headers: { "CJ-Access-Token": await token() } });
+  const j = (await res.json()) as CjReply<T>;
+  if (!j.result) throw new Error(`CJ ${path}: ${j.message ?? res.status}`);
+  return j.data;
+}
+
+/** CJ's cheapest shipping method for one item to that country, with its price in USD. */
+export async function cheapestShipping(vid: string, from: string, to: string, zip?: string) {
+  const opts = await call<{ logisticName: string; logisticPrice: number; logisticAging?: string }[]>("/logistic/freightCalculate", {
     startCountryCode: from,
     endCountryCode: to,
     zip,
     products: [{ vid, quantity: 1 }],
   });
-  const best = [...(opts ?? [])].sort((a, b) => a.logisticPrice - b.logisticPrice)[0];
+  const best = [...(opts ?? [])].sort((a, b) => Number(a.logisticPrice) - Number(b.logisticPrice))[0];
   if (!best) throw new Error("CJ has no shipping to that address");
-  return best.logisticName;
+  return { name: best.logisticName, usd: Number(best.logisticPrice), days: best.logisticAging ?? null };
+}
+
+export type CjHit = { id: string; nameEn: string; bigImage?: string; sellPrice?: string };
+
+/** Search CJ's catalog. countryCode limits it to items stocked in that country's warehouse. */
+export async function cjSearch(keyWord: string, countryCode?: string, size = 5): Promise<CjHit[]> {
+  const data = await get<{ content?: { productList?: CjHit[] }[] }>("/product/listV2", { keyWord, countryCode, size, page: 1, orderBy: 0 });
+  return (data?.content ?? []).flatMap((c) => c.productList ?? []);
+}
+
+export type CjVariant = { vid: string; variantNameEn?: string; variantSellPrice: number; variantImage?: string };
+export type CjProduct = { pid: string; productNameEn: string; bigImage?: string; sellPrice?: number | string; status?: string; variants?: CjVariant[] };
+
+export async function cjProduct(pid: string, countryCode?: string): Promise<CjProduct> {
+  return get<CjProduct>("/product/query", { pid, countryCode });
 }
 
 const countryName = (code: string) => {
@@ -73,10 +108,10 @@ const countryName = (code: string) => {
 };
 
 /** Place one gift with CJ. Returns CJ's order id. */
-export async function cjOrder(o: { id: string; vid: string; shipTo: ShipTo; message?: string }) {
-  const from = (process.env.CJ_FROM_COUNTRY ?? "US").toUpperCase();
+export async function cjOrder(o: { id: string; vid: string; from?: string; shipTo: ShipTo; message?: string }) {
+  const from = (o.from || process.env.CJ_FROM_COUNTRY || "US").toUpperCase();
   const to = (o.shipTo.country || "US").toUpperCase();
-  const logisticName = await cheapestShipping(o.vid, from, to, o.shipTo.postal_code);
+  const { name: logisticName } = await cheapestShipping(o.vid, from, to, o.shipTo.postal_code);
   const data = await call<{ orderId: string }>("/shopping/order/createOrderV2", {
     orderNumber: o.id,
     shippingCountryCode: to,

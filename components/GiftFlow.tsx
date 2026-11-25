@@ -151,7 +151,7 @@ export default function GiftFlow(props: {
           {picks.map((p, i) => (
             <article key={p.sku} className="gift">
               <div className="thumb" aria-hidden>
-                <span>{p.emoji || "🎁"}</span>
+                {p.image ? <img src={p.image} alt="" loading="lazy" /> : <span>{p.emoji || "🎁"}</span>}
                 {round === 1 && i === 0 && <span className="badge">Best match</span>}
               </div>
               <h3>{p.name}</h3>
@@ -159,7 +159,7 @@ export default function GiftFlow(props: {
               <p className="why">{p.why}</p>
               <div className="price">
                 {perk > 0 ? <span><s className="muted">{money(p.payCents)}</s> {money(pay(p.payCents))}</span> : <span>{money(p.payCents)}</span>}
-                <small className="muted">Shipping included, no fees</small>
+                <small className="free-ship">Free shipping</small>
               </div>
               <button className="btn" onClick={() => buy(p.sku)}>{props.signedIn ? "Send this" : "Sign in to send"}</button>
             </article>
