@@ -6,14 +6,14 @@ import { ASSOCIATE_STATEMENT } from "@/lib/amazon";
 const display = Bricolage_Grotesque({ subsets: ["latin"], weight: ["600", "700", "800"], variable: "--font-display" });
 const body = Inter({ subsets: ["latin"], weight: ["400", "500", "600", "700"], variable: "--font-body" });
 
-export const metadata = { title: "Gift Picker", description: "Never miss a birthday. Pick and send the right gift in a few taps." };
+export const metadata = { title: "Gift4Me", description: "Never miss a birthday. Pick and send the right gift in a few taps." };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="en" className={`${display.variable} ${body.variable}`}>
       <body>
         <header className="top">
-          <Link href="/" className="brand"><span className="brand-mark" aria-hidden>🎁</span>Gift Picker</Link>
+          <Link href="/" className="brand"><span className="brand-mark" aria-hidden>🎁</span>Gift4Me</Link>
           <nav><Link href="/find">Find a gift</Link><Link href="/people">My people</Link><Link href="/business">For teams</Link><Link href="/orders">Orders</Link></nav>
         </header>
         {children}

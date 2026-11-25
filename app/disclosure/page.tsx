@@ -1,6 +1,6 @@
 import { ASSOCIATE_STATEMENT } from "@/lib/amazon";
 
-export const metadata = { title: "Affiliate disclosure · Gift Picker" };
+export const metadata = { title: "Affiliate disclosure · Gift4Me" };
 
 export default function Disclosure() {
   return (
@@ -8,7 +8,7 @@ export default function Disclosure() {
       <h1>Affiliate disclosure</h1>
       <p><strong>{ASSOCIATE_STATEMENT}</strong></p>
       <p>
-        Gift Picker is a participant in the Amazon Services LLC Associates Program, an affiliate advertising program
+        Gift4Me is a participant in the Amazon Services LLC Associates Program, an affiliate advertising program
         designed to provide a means for sites to earn advertising fees by advertising and linking to Amazon.com.
       </p>
       <p>
@@ -17,7 +17,7 @@ export default function Disclosure() {
         availability are set by Amazon and shown on Amazon.
       </p>
       <p>
-        Gifts you send through Gift Picker itself are sold by us, at one price that includes shipping. We pick which gifts
+        Gifts you send through Gift4Me itself are sold by us, at one price that includes shipping. We pick which gifts
         to show based on what you tell us about the person, not on what earns us the most.
       </p>
     </main>

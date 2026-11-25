@@ -14,7 +14,7 @@ export default async function Business() {
   if (!org) {
     return (
       <main className="stack narrow">
-        <h1>Gift Picker for teams</h1>
+        <h1>Gift4Me for teams</h1>
         <p className="muted">Never miss an employee&rsquo;s birthday or work anniversary. Upload your team once, get a reminder before each one, and send a gift link they can swap.</p>
         <form action={createOrg} className="stack card">
           <label>Company name<input name="name" required maxLength={80} autoComplete="organization" /></label>

@@ -1,4 +1,4 @@
-export const metadata = { title: "Privacy · Gift Picker" };
+export const metadata = { title: "Privacy · Gift4Me" };
 
 const CONTACT = process.env.NEXT_PUBLIC_CONTACT_EMAIL;
 
@@ -17,7 +17,7 @@ export default function Privacy() {
       </ul>
 
       <h2>How we use it</h2>
-      <p>Only to run Gift Picker: suggesting gifts, sending reminders and gift links, and getting gifts delivered. We don&rsquo;t sell your information.</p>
+      <p>Only to run Gift4Me: suggesting gifts, sending reminders and gift links, and getting gifts delivered. We don&rsquo;t sell your information.</p>
 
       <h2>Who we share it with</h2>
       <ul>

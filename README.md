@@ -1,4 +1,4 @@
-# Gift Picker
+# Gift4Me
 
 A gift app for people who buy for a lot of people. Families save their nieces,
 nephews, parents and friends once. Businesses upload their employees once.
