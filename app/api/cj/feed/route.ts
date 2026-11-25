@@ -95,20 +95,20 @@ async function pull(db: Db, batch: FeedCategory[], per: number, startAt = 0) {
     let saved = 0, seen = 0;
     try {
       for (const id of c.ids) {
-        const cap = c.maxUsd ?? 80;
+        const cap = c.maxUsd ?? 80, floor = c.minUsd ?? 2;
         let kept = 0;
         // US warehouses only, for fast delivery. Set CJ_ALLOW_CHINA=1 to also take
         // items from CJ's China warehouses.
         for (const country of (process.env.CJ_ALLOW_CHINA === "1" ? ["US", undefined] : ["US"]) as ("US" | undefined)[]) {
           if (kept >= per || Date.now() - t0 > BUDGET_MS) break;
-          const { items } = await cjList({ categoryId: id, countryCode: country, maxUsd: cap });
+          const { items } = await cjList({ categoryId: id, countryCode: country, maxUsd: cap, minUsd: c.minUsd });
           seen += items.length;
           const warehouse = country ?? "CN";
           for (const [pos, h] of items.entries()) {
             if (kept >= per || Date.now() - t0 > BUDGET_MS) break;
             const title = h.nameEn ?? "";
             const listUsd = lowPrice(h);
-            if (!h.id || !title || !isFinite(listUsd) || listUsd < 2 || listUsd > cap) continue;
+            if (!h.id || !title || !isFinite(listUsd) || listUsd < floor || listUsd > cap) continue;
             if (NOT_GIFTS.some((w) => title.toLowerCase().includes(w))) continue;
             const sku = `cj-${h.id}`.toLowerCase().slice(0, 60);
             if (known.has(sku)) { kept++; continue; }

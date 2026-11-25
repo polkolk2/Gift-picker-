@@ -15,6 +15,7 @@ export type FeedCategory = {
   ages: [number, number];
   emoji: string;
   maxUsd?: number; // CJ price cap, 80 by default
+  minUsd?: number; // skip anything cheaper (for the pricier gifts below)
 };
 
 export const FEED_CATEGORIES: FeedCategory[] = [
@@ -95,3 +96,18 @@ export const FEED_CATEGORIES: FeedCategory[] = [
   { name: "Pet toys", ids: ["2410110339311602900", "2410110339451623300", "2410110340031614900", "2410110340531618900", "2410110340411608400"], tags: ["pets"], styles: ["fun"], ages: [8, 99], emoji: "🐾" },
   { name: "Pet beds", ids: ["2410110358051626100", "2410110357511615700", "2410110358191601900"], tags: ["pets", "home"], styles: ["cozy"], ages: [12, 99], emoji: "🐕" },
 ];
+
+// Pricier gifts: the same categories again, taking only items from $45 to $220,
+// so the $50 to $100, $100 to $200 and $200+ budgets have real choices, with
+// more for men. They sit at the end of the list, so a feed job can start here.
+const PREMIUM = [
+  "Men's watches", "Men's jewelry", "Wallets", "Shaving", "Travel bags", "Backpacks", "Golf", "Fishing",
+  "Camping and hiking", "Cycling", "Fitness gear", "Smart watches", "Headphones", "Speakers", "Projectors",
+  "Cameras", "Gamepads and handhelds", "Smart home", "Kitchen knives", "Barware", "Music instruments",
+  "Women's watches", "Silver and pearl jewelry", "Necklaces", "Skin care", "Beauty tools", "Hair tools", "Blankets and pillows",
+];
+export const PREMIUM_FROM = FEED_CATEGORIES.length;
+for (const n of PREMIUM) {
+  const c = FEED_CATEGORIES.find((x) => x.name === n);
+  if (c) FEED_CATEGORIES.push({ ...c, name: `${c.name}, pricier`, ages: [Math.max(14, c.ages[0]), c.ages[1]], minUsd: 45, maxUsd: 220 });
+}
