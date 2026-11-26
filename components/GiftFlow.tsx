@@ -7,6 +7,7 @@ import type { AmazonIdea } from "@/lib/amazon-ideas";
 type Question = { q: string; options: string[] };
 type Delivery = "text" | "link" | "ship";
 const money = (c: number) => `$${(c / 100).toFixed(2)}`;
+const arrives = (d: number) => (d <= 8 ? "about a week" : d <= 14 ? "1 to 2 weeks" : d <= 21 ? "2 to 3 weeks" : "3 to 4 weeks");
 const cap = (s: string) => s[0].toUpperCase() + s.slice(1);
 // Age choices: each year through 21, then a range (sent as its middle age).
 const AGES: { label: string; value: string }[] = [
@@ -183,7 +184,7 @@ export default function GiftFlow(props: {
               <p className="why">{p.why}</p>
               <div className="price">
                 {perk > 0 ? <span><s className="muted">{money(p.payCents)}</s> {money(pay(p.payCents))}</span> : <span>{money(p.payCents)}</span>}
-                <small className="free-ship">Free shipping</small>
+                <small className="free-ship">Free shipping{p.shipDays ? ` · arrives in ${arrives(p.shipDays)}` : ""}</small>
               </div>
               <button className="btn" onClick={() => buy(p.sku)}>{props.signedIn ? "Send this" : "Sign in to send"}</button>
             </article>

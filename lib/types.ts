@@ -40,6 +40,8 @@ export type Product = {
   description?: string | null;
   /** Who ships it: self (you), supplier (they drop-ship), or sample data. */
   source: "sample" | "self" | "supplier";
+  /** Most days from order to the door, when known. */
+  shipDays?: number | null;
   /** 0 to 100: how widely it sells (from the supplier), used when a profile says little. */
   popularity?: number;
 };

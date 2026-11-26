@@ -29,7 +29,8 @@ export const maxDuration = 300;
 
 const NOISE = /\b(20\d\d|new|hot|sale|wholesale|amazon|cross[- ]border|ebay|aliexpress|best seller|free shipping|dropshipping|shipped from fba warehouse|fba|prohibited by|not shipped on weekends|walmart|banned from|temu|shein|tiktok|factory direct|in stock|us warehouse|fast delivery)\b/gi;
 const NOT_GIFTS = ["diesel", "motorcycle", "advertising", "spare part", "replacement", "wholesale lot", "sex", "adult", "lingerie", "erotic", "knife sharpener", "gun", "vape", "cigarette"];
-const MAX_DAYS = 20;
+const MAX_DAYS = 25; // shoppers order ahead, so slower China shipping is fine
+const HANDLING_DAYS = 3; // CJ packs an order before it ships
 
 function cleanName(s: string) {
   const t = s.replace(NOISE, " ").replace(/[|/,【】\[\]]+/g, " ").replace(/\s+/g, " ").trim()
@@ -98,9 +99,9 @@ async function pull(db: Db, batch: FeedCategory[], per: number, startAt = 0) {
       for (const id of [...c.ids, ...(c.keywords ?? []).map((k) => `kw:${k}`)]) {
         const cap = c.maxUsd ?? 80, floor = c.minUsd ?? 2;
         let kept = 0;
-        // US warehouses only, for fast delivery. Set CJ_ALLOW_CHINA=1 to also take
-        // items from CJ's China warehouses.
-        for (const country of (process.env.CJ_ALLOW_CHINA === "1" ? ["US", undefined] : ["US"]) as ("US" | undefined)[]) {
+        // US warehouses first, then CJ's China warehouses (slower, but shoppers order
+        // ahead). Set CJ_US_ONLY=1 to take US stock only.
+        for (const country of (process.env.CJ_US_ONLY === "1" ? ["US"] : ["US", undefined]) as ("US" | undefined)[]) {
           if (kept >= per || Date.now() - t0 > BUDGET_MS) break;
           const { items } = await cjList({ ...(id.startsWith("kw:") ? { keyWord: id.slice(3) } : { categoryId: id }), countryCode: country, maxUsd: cap, minUsd: c.minUsd });
           seen += items.length;
@@ -119,12 +120,13 @@ async function pull(db: Db, batch: FeedCategory[], per: number, startAt = 0) {
             const v = [...(detail.variants ?? [])].filter((x) => x.vid && Number(x.variantSellPrice) > 0)
               .sort((a, b) => Number(a.variantSellPrice) - Number(b.variantSellPrice))[0];
             if (!v) continue;
-            let shipUsd = 0;
+            let shipUsd = 0, shipDays = maxDays(h.deliveryCycle) || (warehouse === "US" ? 5 : 15);
             if (h.addMarkStatus !== 1) {
               let ship;
               try { ship = await cheapestShipping(v.vid, warehouse, "US"); } catch { continue; }
               if (maxDays(ship.days) > MAX_DAYS) continue;
               shipUsd = ship.usd;
+              shipDays = maxDays(ship.days) || shipDays;
             }
             const cents = Math.round(Number(v.variantSellPrice) * 100) + Math.round(shipUsd * 100);
             if (cents > (cap + 15) * 100) continue;
@@ -143,6 +145,7 @@ async function pull(db: Db, batch: FeedCategory[], per: number, startAt = 0) {
               emoji: c.emoji,
               image_url: v.variantImage || detail.bigImage || h.bigImage || null,
               ships_by: "supplier",
+              ship_days: shipDays + HANDLING_DAYS,
               supplier_ref: `cj:${v.vid}${warehouse === "US" ? "" : "@CN"}`,
               // CJ lists the most-stocked-by-stores items first.
               popularity: Math.max(10, 100 - pos * 2),

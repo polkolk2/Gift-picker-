@@ -26,12 +26,12 @@ export const sampleSource: ProductSource = {
 
 type ProductRow = {
   sku: string; name: string; description: string | null; price_cents: number; tags: string[]; styles: string[];
-  occasions: string[]; sex: "f" | "m" | "any"; age_min: number; age_max: number; image_url: string | null; emoji: string | null; ships_by: "self" | "supplier"; popularity: number | null;
+  occasions: string[]; sex: "f" | "m" | "any"; age_min: number; age_max: number; image_url: string | null; emoji: string | null; ships_by: "self" | "supplier"; popularity: number | null; ship_days: number | null;
 };
-const COLS = "sku,name,description,price_cents,tags,styles,occasions,sex,age_min,age_max,image_url,emoji,ships_by,popularity";
+const COLS = "sku,name,description,price_cents,tags,styles,occasions,sex,age_min,age_max,image_url,emoji,ships_by,popularity,ship_days";
 const fromRow = (r: ProductRow): Product => ({
   sku: r.sku, name: r.name, description: r.description, priceCents: r.price_cents, tags: r.tags, styles: r.styles,
-  occasions: r.occasions, sex: r.sex, ages: [r.age_min, r.age_max], image: r.image_url ?? undefined, emoji: r.emoji, source: r.ships_by, popularity: r.popularity ?? 0,
+  occasions: r.occasions, sex: r.sex, ages: [r.age_min, r.age_max], image: r.image_url ?? undefined, emoji: r.emoji, source: r.ships_by, popularity: r.popularity ?? 0, shipDays: r.ship_days,
 });
 
 export const dbSource: ProductSource = {
