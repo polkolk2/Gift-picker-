@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { requireUser } from "@/lib/supabase/server";
-import { productSource, rank, toPublic } from "@/lib/catalog";
+import { deliverableBy, productSource, rank, toPublic } from "@/lib/catalog";
 import { choosePicks } from "@/lib/ai";
 import { applyFallbackAnswers, readFinder } from "@/lib/finder";
 import { amazonFor } from "@/lib/amazon-ideas";
@@ -14,14 +14,15 @@ export async function POST(req: Request) {
   const f = await readFinder(body, supabase, user);
   if (!f) return NextResponse.json({ error: "Person not found" }, { status: 404 });
 
-  const catalog = await productSource.list();
+  // Only gifts that can still arrive by their date.
+  const catalog = deliverableBy(await productSource.list(), f.criteria.byDate);
   const answers: { q: string; a: string }[] = Array.isArray(body.answers)
     ? body.answers.slice(0, 5).map((x: { q?: unknown; a?: unknown }) => ({ q: String(x.q ?? "").slice(0, 200), a: String(x.a ?? "").slice(0, 100) }))
     : [];
   if (user && answers.length) {
     try {
       const picks = await choosePicks(f.who, catalog, f.exclude, answers, f.occasion);
-      if (picks.length) return NextResponse.json({ picks: picks.map(toPublic), amazon: await amazonFor(f.criteria, picks.flatMap((p) => p.tags)), by: "claude" });
+      if (picks.length) return NextResponse.json({ picks: picks.map(toPublic), amazon: await amazonFor(f.criteria, picks.flatMap((p) => p.tags)), by: "claude", byDate: f.criteria.byDate });
     } catch (e) {
       console.error("choosePicks failed", e);
     }
@@ -29,5 +30,5 @@ export async function POST(req: Request) {
   const c = applyFallbackAnswers(f.criteria, answers);
   const picks = rank(catalog, c);
   // Under the picks: matching Amazon searches, as tagged affiliate links.
-  return NextResponse.json({ picks: picks.map(toPublic), amazon: await amazonFor(c, picks.flatMap((p) => p.tags)), by: "ranking" });
+  return NextResponse.json({ picks: picks.map(toPublic), amazon: await amazonFor(c, picks.flatMap((p) => p.tags)), by: "ranking", byDate: c.byDate });
 }

@@ -36,6 +36,7 @@ export default function GiftFlow(props: {
   const [occasion, setOccasion] = useState(props.defaultOccasion ?? "birthday");
   const [band, setBand] = useState(quick ? 1 : -1); // -1 = use the person's saved budget
   const [styles, setStyles] = useState<string[]>([]);
+  const [byDate, setByDate] = useState(""); // the occasion's saved date, from the server
   const [round, setRound] = useState(0);
   const [picks, setPicks] = useState<PublicPick[]>([]);
   const [amazon, setAmazon] = useState<AmazonIdea[]>([]);
@@ -74,8 +75,9 @@ export default function GiftFlow(props: {
   async function refresh() {
     const id = ++reqId.current;
     setBusy("Updating ideas...");
-    const { picks: p, amazon: a } = await post("/api/picks", finderBody({ exclude: [] }));
+    const { picks: p, amazon: a, byDate: d } = await post("/api/picks", finderBody({ exclude: [] }));
     if (id !== reqId.current) return;
+    setByDate(d ?? "");
     setPicks(p ?? []); setAmazon(a ?? []); setShown((p ?? []).map((x: PublicPick) => x.sku));
     setQuestions([]); setAnswers({}); setRound(1); setBusy("");
   }
@@ -97,8 +99,9 @@ export default function GiftFlow(props: {
     setBusy("Finding ideas...");
     searched.current = true;
     const id = ++reqId.current;
-    const { picks: p, amazon: a } = await post("/api/picks", finderBody());
+    const { picks: p, amazon: a, byDate: d } = await post("/api/picks", finderBody());
     if (id !== reqId.current) return;
+    setByDate(d ?? "");
     setPicks(p ?? []); setAmazon(a ?? []); setShown([...shown, ...(p ?? []).map((x: PublicPick) => x.sku)]); setRound(round + 1); setBusy("");
   }
   async function finish() {
@@ -192,7 +195,11 @@ export default function GiftFlow(props: {
         </div>
       )}
 
-      {picks.length > 0 && amazon.length > 0 && (
+      {round > 0 && !busy && picks.length === 0 && (
+        <p className="muted">{byDate ? `None of our gifts can arrive by ${who === "them" ? "their" : `${who}'s`} ${occasion} on ${new Date(`${byDate}T12:00:00Z`).toLocaleDateString("en-US", { month: "long", day: "numeric" })}. The Amazon picks below may still make it.` : "No gifts match yet. Try another budget or style."}</p>
+      )}
+
+      {amazon.length > 0 && (
         <section className="amazon stack tight" aria-labelledby="amazon-ideas">
           <div className="amazon-banner">
             <h3 id="amazon-ideas">Also worth a look</h3>

@@ -1,8 +1,8 @@
 import type { SupabaseClient, User } from "@supabase/supabase-js";
-import { OCCASIONS, STYLES, type Recipient } from "./types";
+import { OCCASIONS, STYLES, type LifeEvent, type Recipient } from "./types";
 import { whoFromRecipient, type Who } from "./ai";
 import type { Criteria } from "./catalog";
-import { ageOn } from "./dates";
+import { ageOn, upcoming } from "./dates";
 import { orgById } from "./org";
 
 const pickList = (v: unknown, allowed: readonly string[], max: number) =>
@@ -26,10 +26,14 @@ export async function readFinder(body: Record<string, unknown>, supabase: Supaba
 
   let who: Who;
   let avoid: string[] = [];
+  let byDate: string | undefined; // the saved date of this occasion, so gifts arrive in time
   if (body.recipientId) {
     if (!user) return null;
     const { data: r } = await supabase.from("recipients").select("*").eq("id", String(body.recipientId)).single<Recipient>();
     if (!r) return null;
+    const { data: events } = await supabase.from("events").select("*").eq("recipient_id", r.id);
+    const next = upcoming([r], (events ?? []) as LifeEvent[], 400).filter((u) => u.occasion === occasion).sort((a, b) => a.daysAway - b.daysAway)[0];
+    byDate = next?.date.toISOString().slice(0, 10);
     // An employee gets their company's gift style: its budget, its kind of gifts, and what it leaves out.
     const org = r.org_id ? await orgById(supabase, r.org_id) : null;
     if (org) {
@@ -51,7 +55,7 @@ export async function readFinder(body: Record<string, unknown>, supabase: Supaba
   }
   const criteria: Criteria = {
     name: who.name === "them" ? undefined : who.name, occasion, styles, likes: who.likes, dislikes: who.dislikes,
-    sex: who.sex, age: who.age, minCents: who.budgetMin * 100, maxCents: who.budgetMax * 100, exclude, avoid,
+    sex: who.sex, age: who.age, minCents: who.budgetMin * 100, maxCents: who.budgetMax * 100, exclude, avoid, byDate,
   };
   return { who, criteria, occasion, exclude };
 }

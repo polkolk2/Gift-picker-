@@ -70,7 +70,22 @@ export type Criteria = {
   exclude?: string[];
   boost?: string[];         // interests from round 3 answers
   avoid?: string[];         // interests a business leaves out for its team
+  byDate?: string;          // yyyy-mm-dd the gift has to arrive by
 };
+
+/** Days from today until a yyyy-mm-dd date (0 = today). */
+export function daysUntil(iso: string, now = new Date()) {
+  const today = Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate());
+  const [y, m, d] = iso.split("-").map(Number);
+  return Math.round((Date.UTC(y, m - 1, d) - today) / 86_400_000);
+}
+
+/** Only the gifts that can arrive by the date. Gifts with no delivery estimate count as a week. */
+export function deliverableBy(products: Product[], byDate?: string) {
+  if (!byDate) return products;
+  const days = daysUntil(byDate);
+  return products.filter((p) => (p.shipDays ?? 7) <= days);
+}
 
 /** Scores the catalog and returns the best three not shown yet, spread across kinds of gift. */
 // Words that make a product feel like a real present, and ones that make it a chore.
